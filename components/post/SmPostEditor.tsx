@@ -9,16 +9,29 @@ export default function SmPostEditor() {
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
-  useEffect(() => () => { if (fields.imageUrl) URL.revokeObjectURL(fields.imageUrl); }, [fields.imageUrl]);
   const [exporting, setExporting] = useState(false);
+
+  useEffect(
+    () => () => {
+      if (fields.imageUrl) URL.revokeObjectURL(fields.imageUrl);
+    },
+    [fields.imageUrl],
+  );
 
   const set = <K extends keyof SmPostFields>(key: K, value: SmPostFields[K]) =>
     setFields((f) => ({ ...f, [key]: value }));
 
   const onImagePick = (file: File | undefined) => {
     if (!file) return;
+    if (fields.imageUrl) URL.revokeObjectURL(fields.imageUrl);
     const url = URL.createObjectURL(file);
-    set('imageUrl', url);
+    setFields((f) => ({
+      ...f,
+      imageUrl: url,
+      imageScale: 1,
+      imageOffsetX: 0,
+      imageOffsetY: 0,
+    }));
   };
 
   const onExport = async () => {
@@ -42,7 +55,20 @@ export default function SmPostEditor() {
 
   return (
     <div className="sm-post-app">
-      <header className="sm-post-header"><h1>FG Post Studio <small>Editor de post · v02</small></h1><button type="button" className="sm-post-export-btn" onClick={onExport} disabled={exporting}>{exporting ? 'Gerando…' : 'Baixar PNG (1080×1440)'}</button></header>
+      <header className="sm-post-header">
+        <h1>
+          FG Post Studio <small>Editor de post · v02</small>
+        </h1>
+        <button
+          type="button"
+          className="sm-post-export-btn"
+          onClick={onExport}
+          disabled={exporting}
+        >
+          {exporting ? 'Gerando…' : 'Baixar PNG (1080×1440)'}
+        </button>
+      </header>
+
       <section className="sm-post-fields">
         <div className="sm-post-section-head">
           <span>Conteúdo do post</span>
@@ -66,6 +92,50 @@ export default function SmPostEditor() {
           />
         </label>
 
+        {fields.imageUrl && (
+          <div className="sm-post-control-group">
+            <label className="sm-post-field sm-post-range-field">
+              <span>
+                Zoom da imagem <strong>{Math.round(fields.imageScale * 100)}%</strong>
+              </span>
+              <input
+                type="range"
+                min="1"
+                max="2.5"
+                step="0.01"
+                value={fields.imageScale}
+                onChange={(e) => set('imageScale', Number(e.target.value))}
+              />
+            </label>
+
+            <div className="sm-post-two-col">
+              <label className="sm-post-field">
+                <span>Posição horizontal</span>
+                <input
+                  type="number"
+                  min="-800"
+                  max="800"
+                  step="5"
+                  value={fields.imageOffsetX}
+                  onChange={(e) => set('imageOffsetX', Number(e.target.value))}
+                />
+              </label>
+
+              <label className="sm-post-field">
+                <span>Posição vertical</span>
+                <input
+                  type="number"
+                  min="-800"
+                  max="800"
+                  step="5"
+                  value={fields.imageOffsetY}
+                  onChange={(e) => set('imageOffsetY', Number(e.target.value))}
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="sm-post-hairline" />
 
         <label className="sm-post-field">
@@ -83,10 +153,26 @@ export default function SmPostEditor() {
         <label className="sm-post-field">
           <span>Headline</span>
           <textarea
-            rows={3}
+            rows={4}
             value={fields.headline}
-            maxLength={120}
+            maxLength={180}
             onChange={(e) => set('headline', e.target.value)}
+            placeholder="Use Enter para controlar as quebras de linha"
+          />
+          <small>Use Enter para criar uma quebra de linha manual.</small>
+        </label>
+
+        <label className="sm-post-field sm-post-range-field">
+          <span>
+            Tamanho da headline <strong>{fields.headlineFontSize}px</strong>
+          </span>
+          <input
+            type="range"
+            min="48"
+            max="140"
+            step="1"
+            value={fields.headlineFontSize}
+            onChange={(e) => set('headlineFontSize', Number(e.target.value))}
           />
         </label>
 
@@ -95,18 +181,38 @@ export default function SmPostEditor() {
         <label className="sm-post-field">
           <span>Texto (body)</span>
           <textarea
-            rows={4}
+            rows={5}
             value={fields.bodyText}
-            maxLength={220}
+            maxLength={320}
             onChange={(e) => set('bodyText', e.target.value)}
+            placeholder="Use Enter para controlar as quebras de linha"
+          />
+          <small>Use Enter para criar uma quebra de linha manual.</small>
+        </label>
+
+        <label className="sm-post-field sm-post-range-field">
+          <span>
+            Tamanho do body <strong>{fields.bodyFontSize}px</strong>
+          </span>
+          <input
+            type="range"
+            min="14"
+            max="48"
+            step="1"
+            value={fields.bodyFontSize}
+            onChange={(e) => set('bodyFontSize', Number(e.target.value))}
           />
         </label>
 
         <div className="sm-post-hairline" />
 
-        {error && <p role="alert" className="sm-post-error">{error}</p>}
+        {error && (
+          <p role="alert" className="sm-post-error">
+            {error}
+          </p>
+        )}
         <p className="sm-post-hint">
-          Logo e sombra são fixos e não podem ser editados aqui.
+          Logo e sombra são fixos. Headline, body e enquadramento da imagem podem ser ajustados aqui.
         </p>
       </section>
 
@@ -115,8 +221,6 @@ export default function SmPostEditor() {
           <SmPostCanvas ref={canvasRef} fields={fields} onError={setError} />
         </div>
       </main>
-
-
     </div>
   );
 }
