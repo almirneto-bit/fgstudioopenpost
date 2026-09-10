@@ -156,7 +156,12 @@ export default function SmPostEditor() {
           {showSafeArea && (
             <div
               className="sm-post-safe-area"
-              style={{ inset: `${(SAFE_MARGIN / 1080) * 100}% ${(SAFE_MARGIN / 1080) * 100}% ${(SAFE_MARGIN / 1440) * 100}%` }}
+              style={{
+                top: `${(SAFE_MARGIN / 1440) * 100}%`,
+                right: `${(SAFE_MARGIN / 1080) * 100}%`,
+                bottom: `${(SAFE_MARGIN / 1440) * 100}%`,
+                left: `${(SAFE_MARGIN / 1080) * 100}%`,
+              }}
               aria-hidden="true"
             />
           )}
