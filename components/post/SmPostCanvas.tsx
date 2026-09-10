@@ -12,20 +12,63 @@ function wrapLines(
   text: string,
   maxWidth: number,
 ): string[] {
-  const words = text.split(/\s+/).filter(Boolean);
+  const paragraphs = text.split(/\r?\n/);
   const lines: string[] = [];
-  let current = '';
-  for (const word of words) {
-    const attempt = current ? `${current} ${word}` : word;
-    if (ctx.measureText(attempt).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = attempt;
+
+  for (const paragraph of paragraphs) {
+    if (!paragraph.trim()) {
+      lines.push('');
+      continue;
     }
+
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    let current = '';
+
+    for (const word of words) {
+      const attempt = current ? `${current} ${word}` : word;
+      if (ctx.measureText(attempt).width > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = attempt;
+      }
+    }
+
+    if (current) lines.push(current);
   }
-  if (current) lines.push(current);
+
   return lines;
+}
+
+function fitFontSize(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  box: { width: number; height: number },
+  opts: {
+    fontFamily: string;
+    fontWeight: number;
+    fontSize: number;
+    minFontSize: number;
+    lineHeight: number;
+  },
+) {
+  let fontSize = opts.fontSize;
+
+  while (fontSize > opts.minFontSize) {
+    ctx.font = `${opts.fontWeight} ${fontSize}px ${opts.fontFamily}`;
+    const lines = wrapLines(ctx, text, box.width);
+    const totalHeight = lines.length * fontSize * opts.lineHeight;
+    const widestLine = Math.max(0, ...lines.map((line) => ctx.measureText(line).width));
+
+    if (totalHeight <= box.height && widestLine <= box.width) {
+      return { fontSize, lines };
+    }
+
+    fontSize -= 2;
+  }
+
+  ctx.font = `${opts.fontWeight} ${opts.minFontSize}px ${opts.fontFamily}`;
+  return { fontSize: opts.minFontSize, lines: wrapLines(ctx, text, box.width) };
 }
 
 function drawCenteredParagraph(
@@ -36,27 +79,27 @@ function drawCenteredParagraph(
     fontFamily: string;
     fontWeight: number;
     fontSize: number;
+    minFontSize: number;
     lineHeight: number;
     color: string;
     letterSpacing?: number;
   },
 ) {
-  const content = text;
-  ctx.font = `${opts.fontWeight} ${opts.fontSize}px ${opts.fontFamily}`;
+  const fitted = fitFontSize(ctx, text, box, opts);
+  ctx.font = `${opts.fontWeight} ${fitted.fontSize}px ${opts.fontFamily}`;
   ctx.fillStyle = opts.color;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  // Canvas 2D has no native letter-spacing pre-Safari18; approximate for
-  // wrapping purposes only (visual spacing is close enough at these sizes).
-  const lines = wrapLines(ctx, content, box.width);
-  const lineHeightPx = opts.fontSize * opts.lineHeight;
-  const totalHeight = lines.length * lineHeightPx;
+
+  const lineHeightPx = fitted.fontSize * opts.lineHeight;
+  const totalHeight = fitted.lines.length * lineHeightPx;
   let cursorY = box.y + box.height / 2 - totalHeight / 2 + lineHeightPx / 2;
   const centerX = box.x + box.width / 2;
-  for (const line of lines) {
-    if ((opts.letterSpacing ?? 0) > 0) {
+
+  for (const line of fitted.lines) {
+    if ((opts.letterSpacing ?? 0) > 0 && line) {
       drawLetterSpaced(ctx, line, centerX, cursorY, opts.letterSpacing!);
-    } else {
+    } else if (line) {
       ctx.fillText(line, centerX, cursorY);
     }
     cursorY += lineHeightPx;
@@ -71,14 +114,16 @@ function drawLetterSpaced(
   spacing: number,
 ) {
   const widths = [...line].map((ch) => ctx.measureText(ch).width);
-  const totalWidth = widths.reduce((a, b) => a + b, 0) + spacing * (line.length - 1);
+  const totalWidth = widths.reduce((a, b) => a + b, 0) + spacing * Math.max(0, line.length - 1);
   let x = centerX - totalWidth / 2;
   const prevAlign = ctx.textAlign;
   ctx.textAlign = 'left';
+
   [...line].forEach((ch, i) => {
     ctx.fillText(ch, x, y);
     x += widths[i] + spacing;
   });
+
   ctx.textAlign = prevAlign;
 }
 
@@ -96,12 +141,16 @@ function drawCover(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
   box: { x: number; y: number; width: number; height: number },
+  scaleMultiplier = 1,
+  offsetX = 0,
+  offsetY = 0,
 ) {
-  const scale = Math.max(box.width / img.width, box.height / img.height);
+  const coverScale = Math.max(box.width / img.width, box.height / img.height);
+  const scale = coverScale * scaleMultiplier;
   const drawW = img.width * scale;
   const drawH = img.height * scale;
-  const dx = box.x + (box.width - drawW) / 2;
-  const dy = box.y + (box.height - drawH) / 2;
+  const dx = box.x + (box.width - drawW) / 2 + offsetX;
+  const dy = box.y + (box.height - drawH) / 2 + offsetY;
   ctx.drawImage(img, dx, dy, drawW, drawH);
 }
 
@@ -109,33 +158,36 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
   const t = SM_POST_TEMPLATE;
   ctx.clearRect(0, 0, POST_WIDTH, POST_HEIGHT);
 
-  // 1. Imagem de fundo (editável)
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, POST_WIDTH, POST_HEIGHT);
   if (fields.imageUrl) {
     try {
       const img = await loadImage(fields.imageUrl);
-      drawCover(ctx, img, t.image);
-    } catch { throw new Error('Não foi possível carregar a imagem. Envie outro arquivo.'); }
+      drawCover(ctx, img, t.image, fields.imageScale, fields.imageOffsetX, fields.imageOffsetY);
+    } catch {
+      throw new Error('Não foi possível carregar a imagem. Envie outro arquivo.');
+    }
   }
 
-  // 2. Shadow (fixo)
   const grad = ctx.createLinearGradient(0, t.shadow.y, 0, t.shadow.y + t.shadow.height);
   for (const stop of t.shadow.stops) grad.addColorStop(stop.offset, stop.color);
   ctx.fillStyle = grad;
   ctx.fillRect(t.shadow.x, t.shadow.y, t.shadow.width, t.shadow.height);
 
-  // 3. Logos (fixos)
   try {
     const logoFg = await loadImage(t.logoFg.src);
     ctx.drawImage(logoFg, t.logoFg.x, t.logoFg.y, t.logoFg.width, t.logoFg.height);
-  } catch { throw new Error('Não foi possível carregar os logos do post.'); }
+  } catch {
+    throw new Error('Não foi possível carregar os logos do post.');
+  }
+
   try {
     const logoSecondary = await loadImage(t.logoSecondary.src);
     ctx.drawImage(logoSecondary, t.logoSecondary.x, t.logoSecondary.y, t.logoSecondary.width, t.logoSecondary.height);
-  } catch { throw new Error('Não foi possível carregar os logos do post.'); }
+  } catch {
+    throw new Error('Não foi possível carregar os logos do post.');
+  }
 
-  // 4. Tag (editável)
   const tagCfg = t.tag;
   ctx.font = `${tagCfg.fontWeight} ${tagCfg.fontSize}px ${tagCfg.fontFamily}`;
   const tagText = fields.tag;
@@ -162,20 +214,20 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
   ctx.textBaseline = 'middle';
   drawLetterSpaced(ctx, tagText, tagCfg.centerX, pillY + pillHeight / 2 + 1, tagCfg.letterSpacing);
 
-  // 5. Headline (editável)
   drawCenteredParagraph(ctx, fields.headline, t.headline, {
     fontFamily: t.headline.fontFamily,
     fontWeight: t.headline.fontWeight,
-    fontSize: t.headline.fontSize,
+    fontSize: fields.headlineFontSize,
+    minFontSize: t.headline.minFontSize,
     lineHeight: t.headline.lineHeight,
     color: t.headline.color,
   });
 
-  // 6. Body text (editável)
   drawCenteredParagraph(ctx, fields.bodyText, t.bodyText, {
     fontFamily: t.bodyText.fontFamily,
     fontWeight: t.bodyText.fontWeight,
-    fontSize: t.bodyText.fontSize,
+    fontSize: fields.bodyFontSize,
+    minFontSize: t.bodyText.minFontSize,
     lineHeight: t.bodyText.lineHeight,
     color: t.bodyText.color,
     letterSpacing: t.bodyText.letterSpacing,
@@ -183,46 +235,69 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
 }
 
 async function renderPost(fields: SmPostFields) {
-  await Promise.all([document.fonts.load('400 104px "Vina Sans"'), document.fonts.load('400 24px "Noto Sans"'), document.fonts.load('700 24px "Noto Sans"')]);
+  await Promise.all([
+    document.fonts.load('400 104px "Vina Sans"'),
+    document.fonts.load('400 24px "Noto Sans"'),
+    document.fonts.load('700 24px "Noto Sans"'),
+  ]);
+
   const buffer = document.createElement('canvas');
-  buffer.width = POST_WIDTH; buffer.height = POST_HEIGHT;
+  buffer.width = POST_WIDTH;
+  buffer.height = POST_HEIGHT;
   const context = buffer.getContext('2d');
   if (!context) throw new Error('Canvas indisponível neste navegador.');
   await draw(context, fields);
   return buffer;
 }
 
-const SmPostCanvas = forwardRef<SmPostCanvasHandle, { fields: SmPostFields; onError: (message: string) => void }>(
-  function SmPostCanvas({ fields, onError }, ref) {
-    const canvasRef = useRef<HTMLCanvasElement>(null);
+const SmPostCanvas = forwardRef<
+  SmPostCanvasHandle,
+  { fields: SmPostFields; onError: (message: string) => void }
+>(function SmPostCanvas({ fields, onError }, ref) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      let cancelled = false;
-      renderPost(fields).then(buffer => {
-        if (!cancelled) { canvas.getContext('2d')?.drawImage(buffer, 0, 0); onError(''); }
-      }).catch(error => { if (!cancelled) onError(error.message); });
-      return () => { cancelled = true; };
-    }, [fields, onError]);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    let cancelled = false;
 
-    useImperativeHandle(ref, () => ({
-      exportPng: async () => {
-        const buffer = await renderPost(fields);
-        return new Promise<Blob | null>((resolve, reject) => buffer.toBlob(blob => blob ? resolve(blob) : reject(new Error('Falha ao gerar PNG.')), 'image/png'));
-      },
-    }));
+    renderPost(fields)
+      .then((buffer) => {
+        if (!cancelled) {
+          canvas.getContext('2d')?.drawImage(buffer, 0, 0);
+          onError('');
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) onError(error.message);
+      });
 
-    return (
-      <canvas
-        ref={canvasRef}
-        width={POST_WIDTH}
-        height={POST_HEIGHT}
-        className="sm-post-canvas"
-        aria-label="Prévia do post"
-      />
-    );
-  },
-);
+    return () => {
+      cancelled = true;
+    };
+  }, [fields, onError]);
+
+  useImperativeHandle(ref, () => ({
+    exportPng: async () => {
+      const buffer = await renderPost(fields);
+      return new Promise<Blob | null>((resolve, reject) =>
+        buffer.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('Falha ao gerar PNG.'))),
+          'image/png',
+        ),
+      );
+    },
+  }));
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={POST_WIDTH}
+      height={POST_HEIGHT}
+      className="sm-post-canvas"
+      aria-label="Prévia do post"
+    />
+  );
+});
 
 export default SmPostCanvas;
