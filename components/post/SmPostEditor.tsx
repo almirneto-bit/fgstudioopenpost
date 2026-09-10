@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import SmPostCanvas, { type SmPostCanvasHandle } from './SmPostCanvas';
 import { SM_POST_DEFAULTS, type SmPostFields } from '@/lib/smPostTemplate';
 
@@ -8,6 +8,8 @@ export default function SmPostEditor() {
   const [fields, setFields] = useState<SmPostFields>(SM_POST_DEFAULTS);
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState('');
+  useEffect(() => () => { if (fields.imageUrl) URL.revokeObjectURL(fields.imageUrl); }, [fields.imageUrl]);
   const [exporting, setExporting] = useState(false);
 
   const set = <K extends keyof SmPostFields>(key: K, value: SmPostFields[K]) =>
@@ -23,13 +25,16 @@ export default function SmPostEditor() {
     setExporting(true);
     try {
       const blob = await canvasRef.current?.exportPng();
-      if (!blob) return;
+      if (!blob) throw new Error('Canvas indisponível.');
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = 'post.png';
       a.click();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setError('');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Falha ao exportar.');
     } finally {
       setExporting(false);
     }
@@ -37,8 +42,9 @@ export default function SmPostEditor() {
 
   return (
     <div className="sm-post-app">
-      <section className="card sm-post-fields card-scroll">
-        <div className="section-head">
+      <header className="sm-post-header"><h1>FG Post Studio <small>Editor de post · v02</small></h1><button type="button" className="sm-post-export-btn" onClick={onExport} disabled={exporting}>{exporting ? 'Gerando…' : 'Baixar PNG (1080×1440)'}</button></header>
+      <section className="sm-post-fields">
+        <div className="sm-post-section-head">
           <span>Conteúdo do post</span>
         </div>
 
@@ -60,7 +66,7 @@ export default function SmPostEditor() {
           />
         </label>
 
-        <div className="hairline" />
+        <div className="sm-post-hairline" />
 
         <label className="sm-post-field">
           <span>Tag</span>
@@ -72,7 +78,7 @@ export default function SmPostEditor() {
           />
         </label>
 
-        <div className="hairline" />
+        <div className="sm-post-hairline" />
 
         <label className="sm-post-field">
           <span>Headline</span>
@@ -84,7 +90,7 @@ export default function SmPostEditor() {
           />
         </label>
 
-        <div className="hairline" />
+        <div className="sm-post-hairline" />
 
         <label className="sm-post-field">
           <span>Texto (body)</span>
@@ -96,27 +102,21 @@ export default function SmPostEditor() {
           />
         </label>
 
-        <div className="hairline" />
+        <div className="sm-post-hairline" />
 
+        {error && <p role="alert" className="sm-post-error">{error}</p>}
         <p className="sm-post-hint">
           Logo e sombra são fixos e não podem ser editados aqui.
         </p>
       </section>
 
-      <main className="stage-col sm-post-stage">
+      <main className="sm-post-stage">
         <div className="sm-post-canvas-wrap">
-          <SmPostCanvas ref={canvasRef} fields={fields} />
+          <SmPostCanvas ref={canvasRef} fields={fields} onError={setError} />
         </div>
       </main>
 
-      <section className="card right sm-post-export">
-        <div className="section-head">
-          <span>Exportar</span>
-        </div>
-        <button type="button" className="sm-post-export-btn" onClick={onExport} disabled={exporting}>
-          {exporting ? 'Gerando…' : 'Baixar PNG (1080×1440)'}
-        </button>
-      </section>
+
     </div>
   );
 }

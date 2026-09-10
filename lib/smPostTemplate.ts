@@ -28,11 +28,10 @@ export const SM_POST_TEMPLATE = {
   // ---- Fixo: overlay de sombra (Rectangle 3) ----
   shadow: {
     x: 0, y: 0, width: POST_WIDTH, height: POST_HEIGHT,
-    // Gradiente linear de cima para baixo: escuro opaco no topo,
-    // transparente a partir de ~86.5% da altura.
+    // Gradiente do Figma após rotação de 180°: base escura.
     stops: [
-      { offset: 0, color: 'rgba(12, 12, 15, 1)' },
-      { offset: 0.8653, color: 'rgba(12, 12, 15, 0)' },
+      { offset: 0.1347, color: 'rgba(12, 12, 15, 0)' },
+      { offset: 1, color: 'rgba(12, 12, 15, 1)' },
     ],
   },
 
@@ -40,7 +39,7 @@ export const SM_POST_TEMPLATE = {
   tag: {
     // Caixa auto-hug: a largura real é calculada em runtime a partir
     // do texto; center é o ponto de referência horizontal do pill.
-    centerX: POST_WIDTH / 2 + 5, // (430+649)/2 ≈ 539.5 sobre 1080 → quase centro
+    centerX: 539.5,
     y: 861,
     height: 45,
     paddingX: 24,
@@ -63,7 +62,6 @@ export const SM_POST_TEMPLATE = {
     fontWeight: 400,
     fontSize: 104,
     lineHeight: 0.8, // 83.2px @ 104px = 80%
-    uppercase: true,
   },
 
   // ---- Editável: body text (271:25) ----
@@ -81,13 +79,13 @@ export const SM_POST_TEMPLATE = {
   // ---- Fixo: logo principal FG (271:9, [FG] Logo / White) ----
   logoFg: {
     x: 88, y: 88, width: 103.26, height: 64,
-    src: '/post/logo-fg.svg',
+    src: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/post/logo-fg.svg`,
   },
 
   // ---- Fixo: logotipo secundário/parceiro (271:56, Group 1) ----
   logoSecondary: {
     x: 882, y: 99, width: 110, height: 42,
-    src: '/post/logo-secondary.svg',
+    src: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/post/logo-secondary.svg`,
   },
 } as const;
 

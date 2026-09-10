@@ -39,10 +39,9 @@ function drawCenteredParagraph(
     lineHeight: number;
     color: string;
     letterSpacing?: number;
-    uppercase?: boolean;
   },
 ) {
-  const content = opts.uppercase ? text.toUpperCase() : text;
+  const content = text;
   ctx.font = `${opts.fontWeight} ${opts.fontSize}px ${opts.fontFamily}`;
   ctx.fillStyle = opts.color;
   ctx.textAlign = 'center';
@@ -117,9 +116,7 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
     try {
       const img = await loadImage(fields.imageUrl);
       drawCover(ctx, img, t.image);
-    } catch {
-      // sem imagem carregável ainda — mantém o placeholder escuro
-    }
+    } catch { throw new Error('Não foi possível carregar a imagem. Envie outro arquivo.'); }
   }
 
   // 2. Shadow (fixo)
@@ -132,20 +129,16 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
   try {
     const logoFg = await loadImage(t.logoFg.src);
     ctx.drawImage(logoFg, t.logoFg.x, t.logoFg.y, t.logoFg.width, t.logoFg.height);
-  } catch {
-    /* asset ainda não adicionado em public/post/ */
-  }
+  } catch { throw new Error('Não foi possível carregar os logos do post.'); }
   try {
     const logoSecondary = await loadImage(t.logoSecondary.src);
     ctx.drawImage(logoSecondary, t.logoSecondary.x, t.logoSecondary.y, t.logoSecondary.width, t.logoSecondary.height);
-  } catch {
-    /* asset ainda não adicionado em public/post/ */
-  }
+  } catch { throw new Error('Não foi possível carregar os logos do post.'); }
 
   // 4. Tag (editável)
   const tagCfg = t.tag;
   ctx.font = `${tagCfg.fontWeight} ${tagCfg.fontSize}px ${tagCfg.fontFamily}`;
-  const tagText = fields.tag.toUpperCase();
+  const tagText = fields.tag;
   const textWidth = [...tagText].reduce(
     (sum, ch) => sum + ctx.measureText(ch).width + tagCfg.letterSpacing,
     -tagCfg.letterSpacing,
@@ -156,7 +149,13 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
   const pillY = tagCfg.y;
   ctx.fillStyle = tagCfg.background;
   ctx.beginPath();
-  ctx.roundRect(pillX, pillY, pillWidth, pillHeight, tagCfg.cornerRadius);
+  const radius = Math.min(tagCfg.cornerRadius, pillHeight / 2, pillWidth / 2);
+  ctx.moveTo(pillX + radius, pillY);
+  ctx.arcTo(pillX + pillWidth, pillY, pillX + pillWidth, pillY + pillHeight, radius);
+  ctx.arcTo(pillX + pillWidth, pillY + pillHeight, pillX, pillY + pillHeight, radius);
+  ctx.arcTo(pillX, pillY + pillHeight, pillX, pillY, radius);
+  ctx.arcTo(pillX, pillY, pillX + pillWidth, pillY, radius);
+  ctx.closePath();
   ctx.fill();
   ctx.fillStyle = tagCfg.textColor;
   ctx.textAlign = 'center';
@@ -170,7 +169,6 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
     fontSize: t.headline.fontSize,
     lineHeight: t.headline.lineHeight,
     color: t.headline.color,
-    uppercase: t.headline.uppercase,
   });
 
   // 6. Body text (editável)
@@ -184,30 +182,35 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
   });
 }
 
-const SmPostCanvas = forwardRef<SmPostCanvasHandle, { fields: SmPostFields }>(
-  function SmPostCanvas({ fields }, ref) {
+async function renderPost(fields: SmPostFields) {
+  await Promise.all([document.fonts.load('400 104px "Vina Sans"'), document.fonts.load('400 24px "Noto Sans"'), document.fonts.load('700 24px "Noto Sans"')]);
+  const buffer = document.createElement('canvas');
+  buffer.width = POST_WIDTH; buffer.height = POST_HEIGHT;
+  const context = buffer.getContext('2d');
+  if (!context) throw new Error('Canvas indisponível neste navegador.');
+  await draw(context, fields);
+  return buffer;
+}
+
+const SmPostCanvas = forwardRef<SmPostCanvasHandle, { fields: SmPostFields; onError: (message: string) => void }>(
+  function SmPostCanvas({ fields, onError }, ref) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
       let cancelled = false;
-      // Garante que Vina Sans / Noto Sans estejam carregadas antes de medir texto.
-      document.fonts.ready.then(() => {
-        if (!cancelled) void draw(ctx, fields);
-      });
-      return () => {
-        cancelled = true;
-      };
-    }, [fields]);
+      renderPost(fields).then(buffer => {
+        if (!cancelled) { canvas.getContext('2d')?.drawImage(buffer, 0, 0); onError(''); }
+      }).catch(error => { if (!cancelled) onError(error.message); });
+      return () => { cancelled = true; };
+    }, [fields, onError]);
 
     useImperativeHandle(ref, () => ({
-      exportPng: () =>
-        new Promise((resolve) => {
-          canvasRef.current?.toBlob((blob) => resolve(blob), 'image/png', 1);
-        }),
+      exportPng: async () => {
+        const buffer = await renderPost(fields);
+        return new Promise<Blob | null>((resolve, reject) => buffer.toBlob(blob => blob ? resolve(blob) : reject(new Error('Falha ao gerar PNG.')), 'image/png'));
+      },
     }));
 
     return (

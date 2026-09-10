@@ -31,11 +31,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Route handlers can't exist in a static export; the hosted demo
-      # disables Export in the UI instead (see components/ExportDialog.tsx).
-      - name: Remove server-only export API
-        run: rm -rf app/api
-
       - name: Build static site
         run: npm run build
         env:
