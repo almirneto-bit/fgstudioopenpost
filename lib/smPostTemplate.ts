@@ -6,6 +6,7 @@
 
 export const POST_WIDTH = 1080;
 export const POST_HEIGHT = 1440;
+export const SAFE_MARGIN = 88;
 
 export const SM_POST_TEMPLATE = {
   canvas: { width: POST_WIDTH, height: POST_HEIGHT },
@@ -77,11 +78,14 @@ export type SmPostFields = {
   imageScale: number;
   imageOffsetX: number;
   imageOffsetY: number;
+  noiseIntensity: number;
   tag: string;
   headline: string;
   headlineFontSize: number;
+  tagHeadlineOffset: number;
   bodyText: string;
   bodyFontSize: number;
+  headlineBodyOffset: number;
 };
 
 export const SM_POST_DEFAULTS: SmPostFields = {
@@ -89,10 +93,13 @@ export const SM_POST_DEFAULTS: SmPostFields = {
   imageScale: 1,
   imageOffsetX: 0,
   imageOffsetY: 0,
+  noiseIntensity: 0,
   tag: 'COMPETITIVO',
   headline: 'a favela tá pronta pra entrar na arena!',
   headlineFontSize: 104,
+  tagHeadlineOffset: 0,
   bodyText:
     'Monte a sua equipe, faça sua inscrição e tenha um pro de Clash Royale no comando do seu time!',
   bodyFontSize: 24,
+  headlineBodyOffset: 0,
 };
