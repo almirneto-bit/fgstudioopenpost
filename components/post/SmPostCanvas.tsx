@@ -112,15 +112,18 @@ function drawCover(
   ctx.drawImage(img, dx, dy, drawW, drawH);
 }
 
-function drawNoise(ctx: CanvasRenderingContext2D, intensity: number) {
+function drawNoise(ctx: CanvasRenderingContext2D, intensity: number, grainSize: number) {
   if (intensity <= 0) return;
-  const w = 180;
-  const h = 240;
+
+  const safeGrainSize = Math.max(1, Math.round(grainSize));
+  const w = Math.ceil(POST_WIDTH / safeGrainSize);
+  const h = Math.ceil(POST_HEIGHT / safeGrainSize);
   const noise = document.createElement('canvas');
   noise.width = w;
   noise.height = h;
   const nctx = noise.getContext('2d');
   if (!nctx) return;
+
   const imageData = nctx.createImageData(w, h);
   const data = imageData.data;
   let seed = 1337;
@@ -128,6 +131,7 @@ function drawNoise(ctx: CanvasRenderingContext2D, intensity: number) {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
+
   for (let i = 0; i < data.length; i += 4) {
     const value = random() > 0.5 ? 255 : 0;
     data[i] = value;
@@ -135,6 +139,7 @@ function drawNoise(ctx: CanvasRenderingContext2D, intensity: number) {
     data[i + 2] = value;
     data[i + 3] = 255;
   }
+
   nctx.putImageData(imageData, 0, 0);
   ctx.save();
   ctx.globalAlpha = (intensity / 100) * 0.22;
@@ -163,7 +168,7 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
   ctx.fillStyle = grad;
   ctx.fillRect(t.shadow.x, t.shadow.y, t.shadow.width, t.shadow.height);
 
-  drawNoise(ctx, fields.noiseIntensity);
+  if (fields.noiseEnabled) drawNoise(ctx, fields.noiseIntensity, fields.noiseSize);
 
   try {
     const logoFg = await loadImage(t.logoFg.src);
