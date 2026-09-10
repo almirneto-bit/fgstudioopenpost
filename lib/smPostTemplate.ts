@@ -78,7 +78,9 @@ export type SmPostFields = {
   imageScale: number;
   imageOffsetX: number;
   imageOffsetY: number;
+  noiseEnabled: boolean;
   noiseIntensity: number;
+  noiseSize: number;
   tag: string;
   headline: string;
   headlineFontSize: number;
@@ -93,7 +95,9 @@ export const SM_POST_DEFAULTS: SmPostFields = {
   imageScale: 1,
   imageOffsetX: 0,
   imageOffsetY: 0,
-  noiseIntensity: 0,
+  noiseEnabled: false,
+  noiseIntensity: 35,
+  noiseSize: 4,
   tag: 'COMPETITIVO',
   headline: 'a favela tá pronta pra entrar na arena!',
   headlineFontSize: 104,
