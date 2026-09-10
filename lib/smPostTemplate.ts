@@ -2,13 +2,6 @@
 // SM POST TEMPLATE — specs extraídas 1:1 do Figma
 // (Welcome World, page "Test_SM-Post", frame "Instagram post - 1",
 //  node 271:2)
-//
-// Este é o ÚNICO layout do sistema: 4 slots editáveis (image, tag,
-// headline, bodyText) + 3 elementos fixos (logoFg, logoSecondary,
-// shadow). Ao contrário de templates/*.ts (que descrevem uma
-// transformação POR FRAME para a engine de animação), este é um
-// layout estático — um objeto de constantes que o SmPostCanvas usa
-// para desenhar uma vez.
 // ============================================================
 
 export const POST_WIDTH = 1080;
@@ -17,28 +10,20 @@ export const POST_HEIGHT = 1440;
 export const SM_POST_TEMPLATE = {
   canvas: { width: POST_WIDTH, height: POST_HEIGHT },
 
-  // ---- Editável: imagem de fundo (Rectangle 1) ----
   image: {
     x: 0, y: 0, width: POST_WIDTH, height: POST_HEIGHT,
-    // O Figma usa STRETCH; aqui usamos "cover" para aceitar qualquer
-    // foto enviada pelo usuário sem distorcer.
     fit: 'cover' as const,
   },
 
-  // ---- Fixo: overlay de sombra (Rectangle 3) ----
   shadow: {
     x: 0, y: 0, width: POST_WIDTH, height: POST_HEIGHT,
-    // Gradiente do Figma após rotação de 180°: base escura.
     stops: [
       { offset: 0.1347, color: 'rgba(12, 12, 15, 0)' },
       { offset: 1, color: 'rgba(12, 12, 15, 1)' },
     ],
   },
 
-  // ---- Editável: tag/pill (Frame 1) ----
   tag: {
-    // Caixa auto-hug: a largura real é calculada em runtime a partir
-    // do texto; center é o ponto de referência horizontal do pill.
     centerX: 539.5,
     y: 861,
     height: 45,
@@ -53,7 +38,6 @@ export const SM_POST_TEMPLATE = {
     letterSpacing: 0.48,
   },
 
-  // ---- Editável: headline (271:12) ----
   headline: {
     x: 179, y: 946, width: 721, height: 249,
     align: 'center' as const,
@@ -61,10 +45,10 @@ export const SM_POST_TEMPLATE = {
     fontFamily: '"Vina Sans", sans-serif',
     fontWeight: 400,
     fontSize: 104,
-    lineHeight: 0.8, // 83.2px @ 104px = 80%
+    minFontSize: 48,
+    lineHeight: 0.8,
   },
 
-  // ---- Editável: body text (271:25) ----
   bodyText: {
     x: 302, y: 1235, width: 475, height: 87,
     align: 'center' as const,
@@ -72,17 +56,16 @@ export const SM_POST_TEMPLATE = {
     fontFamily: '"Noto Sans", sans-serif',
     fontWeight: 400,
     fontSize: 24,
-    lineHeight: 1.2, // 28.8px @ 24px = 120%
+    minFontSize: 14,
+    lineHeight: 1.2,
     letterSpacing: 0.48,
   },
 
-  // ---- Fixo: logo principal FG (271:9, [FG] Logo / White) ----
   logoFg: {
     x: 88, y: 88, width: 103.26, height: 64,
     src: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/post/logo-fg.svg`,
   },
 
-  // ---- Fixo: logotipo secundário/parceiro (271:56, Group 1) ----
   logoSecondary: {
     x: 882, y: 99, width: 110, height: 42,
     src: `${process.env.NEXT_PUBLIC_BASE_PATH || ''}/post/logo-secondary.svg`,
@@ -91,15 +74,25 @@ export const SM_POST_TEMPLATE = {
 
 export type SmPostFields = {
   imageUrl: string | null;
+  imageScale: number;
+  imageOffsetX: number;
+  imageOffsetY: number;
   tag: string;
   headline: string;
+  headlineFontSize: number;
   bodyText: string;
+  bodyFontSize: number;
 };
 
 export const SM_POST_DEFAULTS: SmPostFields = {
   imageUrl: null,
+  imageScale: 1,
+  imageOffsetX: 0,
+  imageOffsetY: 0,
   tag: 'COMPETITIVO',
   headline: 'a favela tá pronta pra entrar na arena!',
+  headlineFontSize: 104,
   bodyText:
     'Monte a sua equipe, faça sua inscrição e tenha um pro de Clash Royale no comando do seu time!',
+  bodyFontSize: 24,
 };
