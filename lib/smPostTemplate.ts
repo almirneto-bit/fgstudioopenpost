@@ -8,6 +8,14 @@ export const POST_WIDTH = 1080;
 export const POST_HEIGHT = 1440;
 export const SAFE_MARGIN = 88;
 
+export const FG_LOGO_COLORS = {
+  white: '#EFEFEF',
+  black: '#0C0C0F',
+  orange: '#EF7828',
+} as const;
+
+export type FgLogoColor = keyof typeof FG_LOGO_COLORS;
+
 export const SM_POST_TEMPLATE = {
   canvas: { width: POST_WIDTH, height: POST_HEIGHT },
 
@@ -78,6 +86,7 @@ export type SmPostFields = {
   imageScale: number;
   imageOffsetX: number;
   imageOffsetY: number;
+  logoFgColor: FgLogoColor;
   noiseEnabled: boolean;
   noiseIntensity: number;
   noiseSize: number;
@@ -95,6 +104,7 @@ export const SM_POST_DEFAULTS: SmPostFields = {
   imageScale: 1,
   imageOffsetX: 0,
   imageOffsetY: 0,
+  logoFgColor: 'white',
   noiseEnabled: false,
   noiseIntensity: 35,
   noiseSize: 4,
