@@ -1,7 +1,14 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { FG_LOGO_COLORS, POST_HEIGHT, POST_WIDTH, SM_POST_TEMPLATE, type SmPostFields } from '@/lib/smPostTemplate';
+import {
+  FG_LOGO_COLORS,
+  POST_HEIGHT,
+  POST_WIDTH,
+  SM_POST_TEMPLATE,
+  SM_POST_VARIANTS,
+  type SmPostFields,
+} from '@/lib/smPostTemplate';
 
 const GIF_WIDTH = 720;
 const GIF_HEIGHT = 960;
@@ -21,6 +28,9 @@ type PreparedAssets = {
   logoFg: HTMLImageElement;
   logoSecondary: HTMLImageElement;
 };
+
+type Radius = { tl: number; tr: number; br: number; bl: number };
+type Box = { x: number; y: number; width: number; height: number };
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
 const noiseCache = new Map<number, HTMLCanvasElement>();
@@ -71,7 +81,7 @@ function fitFontSize(
 function drawCenteredParagraph(
   ctx: CanvasRenderingContext2D,
   text: string,
-  box: { x: number; y: number; width: number; height: number },
+  box: Box,
   opts: {
     fontFamily: string;
     fontWeight: number;
@@ -153,10 +163,29 @@ function mediaDimensions(media: HTMLImageElement | HTMLVideoElement) {
   return { width: media.naturalWidth || media.width, height: media.naturalHeight || media.height };
 }
 
+function roundedRectPath(ctx: CanvasRenderingContext2D, box: Box, radius: Radius) {
+  const { x, y, width: w, height: h } = box;
+  const tl = Math.max(0, Math.min(radius.tl, w / 2, h / 2));
+  const tr = Math.max(0, Math.min(radius.tr, w / 2, h / 2));
+  const br = Math.max(0, Math.min(radius.br, w / 2, h / 2));
+  const bl = Math.max(0, Math.min(radius.bl, w / 2, h / 2));
+  ctx.beginPath();
+  ctx.moveTo(x + tl, y);
+  ctx.lineTo(x + w - tr, y);
+  if (tr) ctx.quadraticCurveTo(x + w, y, x + w, y + tr); else ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + h - br);
+  if (br) ctx.quadraticCurveTo(x + w, y + h, x + w - br, y + h); else ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x + bl, y + h);
+  if (bl) ctx.quadraticCurveTo(x, y + h, x, y + h - bl); else ctx.lineTo(x, y + h);
+  ctx.lineTo(x, y + tl);
+  if (tl) ctx.quadraticCurveTo(x, y, x + tl, y); else ctx.lineTo(x, y);
+  ctx.closePath();
+}
+
 function drawCover(
   ctx: CanvasRenderingContext2D,
   media: HTMLImageElement | HTMLVideoElement,
-  box: { x: number; y: number; width: number; height: number },
+  box: Box,
   scaleMultiplier = 1,
   offsetX = 0,
   offsetY = 0,
@@ -172,10 +201,27 @@ function drawCover(
   ctx.drawImage(media, dx, dy, drawW, drawH);
 }
 
+function drawCoverClipped(
+  ctx: CanvasRenderingContext2D,
+  media: HTMLImageElement | HTMLVideoElement,
+  box: Box & { radius?: Radius },
+  scaleMultiplier: number,
+  offsetX: number,
+  offsetY: number,
+) {
+  ctx.save();
+  if (box.radius) {
+    roundedRectPath(ctx, box, box.radius);
+    ctx.clip();
+  }
+  drawCover(ctx, media, box, scaleMultiplier, offsetX, offsetY);
+  ctx.restore();
+}
+
 function drawTintedImage(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
-  box: { x: number; y: number; width: number; height: number },
+  box: Box,
   color: string,
 ) {
   const buffer = document.createElement('canvas');
@@ -192,7 +238,6 @@ function drawTintedImage(
 
 function drawNoise(ctx: CanvasRenderingContext2D, intensity: number, grainSize: number) {
   if (intensity <= 0) return;
-
   const safeGrainSize = Math.max(1, Math.round(grainSize));
   let noise = noiseCache.get(safeGrainSize);
   if (!noise) {
@@ -203,7 +248,6 @@ function drawNoise(ctx: CanvasRenderingContext2D, intensity: number, grainSize: 
     noise.height = h;
     const nctx = noise.getContext('2d');
     if (!nctx) return;
-
     const imageData = nctx.createImageData(w, h);
     const data = imageData.data;
     let seed = 1337;
@@ -211,7 +255,6 @@ function drawNoise(ctx: CanvasRenderingContext2D, intensity: number, grainSize: 
       seed = (seed * 1664525 + 1013904223) >>> 0;
       return seed / 4294967296;
     };
-
     for (let i = 0; i < data.length; i += 4) {
       const value = random() > 0.5 ? 255 : 0;
       data[i] = value;
@@ -219,11 +262,9 @@ function drawNoise(ctx: CanvasRenderingContext2D, intensity: number, grainSize: 
       data[i + 2] = value;
       data[i + 3] = 255;
     }
-
     nctx.putImageData(imageData, 0, 0);
     noiseCache.set(safeGrainSize, noise);
   }
-
   ctx.save();
   ctx.globalAlpha = (intensity / 100) * 0.22;
   ctx.imageSmoothingEnabled = false;
@@ -235,7 +276,9 @@ async function prepareAssets(): Promise<PreparedAssets> {
   if (!preparedAssetsPromise) {
     preparedAssetsPromise = (async () => {
       await Promise.all([
-        document.fonts.load('400 104px "Vina Sans"'),
+        document.fonts.load('400 136px "Vina Sans"'),
+        document.fonts.load('400 56px "Kanit"'),
+        document.fonts.load('400 40px "Kanit"'),
         document.fonts.load('400 24px "Noto Sans"'),
         document.fonts.load('700 24px "Noto Sans"'),
       ]);
@@ -249,17 +292,20 @@ async function prepareAssets(): Promise<PreparedAssets> {
   return preparedAssetsPromise;
 }
 
-function drawScene(
+function drawLogos(ctx: CanvasRenderingContext2D, fields: SmPostFields, assets: PreparedAssets, logoFg: Box, logoSecondary: Box) {
+  drawTintedImage(ctx, assets.logoFg, logoFg, FG_LOGO_COLORS[fields.logoFgColor] ?? FG_LOGO_COLORS.white);
+  ctx.drawImage(assets.logoSecondary, logoSecondary.x, logoSecondary.y, logoSecondary.width, logoSecondary.height);
+}
+
+function drawTemplate1(
   ctx: CanvasRenderingContext2D,
   fields: SmPostFields,
   assets: PreparedAssets,
   media: HTMLImageElement | HTMLVideoElement | null,
 ) {
   const t = SM_POST_TEMPLATE;
-  ctx.clearRect(0, 0, POST_WIDTH, POST_HEIGHT);
   ctx.fillStyle = '#1a1a1a';
   ctx.fillRect(0, 0, POST_WIDTH, POST_HEIGHT);
-
   if (media) drawCover(ctx, media, t.image, fields.imageScale, fields.imageOffsetX, fields.imageOffsetY);
 
   const grad = ctx.createLinearGradient(0, t.shadow.y, 0, t.shadow.y + t.shadow.height);
@@ -268,9 +314,7 @@ function drawScene(
   ctx.fillRect(t.shadow.x, t.shadow.y, t.shadow.width, t.shadow.height);
 
   if (fields.noiseEnabled) drawNoise(ctx, fields.noiseIntensity, fields.noiseSize);
-
-  drawTintedImage(ctx, assets.logoFg, t.logoFg, FG_LOGO_COLORS[fields.logoFgColor] ?? FG_LOGO_COLORS.white);
-  ctx.drawImage(assets.logoSecondary, t.logoSecondary.x, t.logoSecondary.y, t.logoSecondary.width, t.logoSecondary.height);
+  drawLogos(ctx, fields, assets, t.logoFg, t.logoSecondary);
 
   const tagCfg = t.tag;
   ctx.font = `${tagCfg.fontWeight} ${tagCfg.fontSize}px ${tagCfg.fontFamily}`;
@@ -300,7 +344,6 @@ function drawScene(
 
   const headlineY = t.headline.y + fields.tagHeadlineOffset;
   const bodyY = t.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset;
-
   drawCenteredParagraph(ctx, textForDisplay(fields.headline, fields.headlineUppercase), { ...t.headline, y: headlineY }, {
     fontFamily: t.headline.fontFamily,
     fontWeight: t.headline.fontWeight,
@@ -309,7 +352,6 @@ function drawScene(
     lineHeight: t.headline.lineHeight,
     color: t.headline.color,
   });
-
   drawCenteredParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), { ...t.bodyText, y: bodyY }, {
     fontFamily: t.bodyText.fontFamily,
     fontWeight: t.bodyText.fontWeight,
@@ -319,6 +361,78 @@ function drawScene(
     color: t.bodyText.color,
     letterSpacing: t.bodyText.letterSpacing,
   });
+}
+
+function drawHeadlineVariant(
+  ctx: CanvasRenderingContext2D,
+  fields: SmPostFields,
+  assets: PreparedAssets,
+  media: HTMLImageElement | HTMLVideoElement | null,
+  variant: typeof SM_POST_VARIANTS['7'] | typeof SM_POST_VARIANTS['8'],
+) {
+  ctx.fillStyle = variant.background;
+  ctx.fillRect(0, 0, POST_WIDTH, POST_HEIGHT);
+  if (media) drawCoverClipped(ctx, media, variant.media, fields.imageScale, fields.imageOffsetX, fields.imageOffsetY);
+  if (fields.noiseEnabled) drawNoise(ctx, fields.noiseIntensity, fields.noiseSize);
+  drawLogos(ctx, fields, assets, variant.logoFg, variant.logoSecondary);
+  drawCenteredParagraph(ctx, textForDisplay(fields.headline, fields.headlineUppercase), variant.headline, {
+    fontFamily: '"Vina Sans", sans-serif',
+    fontWeight: 400,
+    fontSize: fields.headlineFontSize,
+    minFontSize: variant.headline.minFontSize,
+    lineHeight: variant.headline.lineHeight,
+    color: variant.headline.color,
+  });
+}
+
+function drawTemplate9(
+  ctx: CanvasRenderingContext2D,
+  fields: SmPostFields,
+  assets: PreparedAssets,
+  media: HTMLImageElement | HTMLVideoElement | null,
+) {
+  const t = SM_POST_VARIANTS['9'];
+  ctx.fillStyle = t.background;
+  ctx.fillRect(0, 0, POST_WIDTH, POST_HEIGHT);
+  if (media) drawCoverClipped(ctx, media, t.media, fields.imageScale, fields.imageOffsetX, fields.imageOffsetY);
+  if (fields.noiseEnabled) drawNoise(ctx, fields.noiseIntensity, fields.noiseSize);
+
+  ctx.fillStyle = t.copyCard.color;
+  roundedRectPath(ctx, t.copyCard, t.copyCard.radius);
+  ctx.fill();
+
+  drawCenteredParagraph(ctx, textForDisplay(fields.tag, fields.tagUppercase), t.handle, {
+    fontFamily: t.handle.fontFamily,
+    fontWeight: t.handle.fontWeight,
+    fontSize: t.handle.fontSize,
+    minFontSize: t.handle.minFontSize,
+    lineHeight: t.handle.lineHeight,
+    color: t.handle.color,
+  });
+  drawCenteredParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), t.copy, {
+    fontFamily: t.copy.fontFamily,
+    fontWeight: t.copy.fontWeight,
+    fontSize: fields.bodyFontSize,
+    minFontSize: t.copy.minFontSize,
+    lineHeight: t.copy.lineHeight,
+    color: t.copy.color,
+  });
+  drawLogos(ctx, fields, assets, t.logoFg, t.logoSecondary);
+}
+
+function drawScene(
+  ctx: CanvasRenderingContext2D,
+  fields: SmPostFields,
+  assets: PreparedAssets,
+  media: HTMLImageElement | HTMLVideoElement | null,
+) {
+  ctx.clearRect(0, 0, POST_WIDTH, POST_HEIGHT);
+  switch (fields.templateId) {
+    case '7': drawHeadlineVariant(ctx, fields, assets, media, SM_POST_VARIANTS['7']); break;
+    case '8': drawHeadlineVariant(ctx, fields, assets, media, SM_POST_VARIANTS['8']); break;
+    case '9': drawTemplate9(ctx, fields, assets, media); break;
+    default: drawTemplate1(ctx, fields, assets, media); break;
+  }
 }
 
 function makeCanvas(width = POST_WIDTH, height = POST_HEIGHT) {
@@ -355,7 +469,6 @@ function waitForSeek(video: HTMLVideoElement, target: number) {
 
 class GifWriter {
   private bytes: number[] = [];
-
   byte(value: number) { this.bytes.push(value & 255); }
   word(value: number) { this.byte(value); this.byte(value >> 8); }
   ascii(value: string) { for (let i = 0; i < value.length; i++) this.byte(value.charCodeAt(i)); }
@@ -422,7 +535,6 @@ function gifLzwEncode(indices: Uint8Array) {
       bitCount -= 8;
     }
   };
-
   const reset = () => {
     dictionary = new Map<number, number>();
     codeSize = minCodeSize + 1;
@@ -442,7 +554,6 @@ function gifLzwEncode(indices: Uint8Array) {
         prefix = found;
         continue;
       }
-
       writeCode(prefix);
       if (nextCode < 4096) {
         dictionary.set(key, nextCode++);
@@ -456,7 +567,6 @@ function gifLzwEncode(indices: Uint8Array) {
     writeCode(prefix);
     writeCode(endCode);
   }
-
   if (bitCount > 0) output.push(bitBuffer & 255);
   return new Uint8Array(output);
 }
@@ -465,7 +575,7 @@ function createGifHeader(writer: GifWriter, width: number, height: number) {
   writer.ascii('GIF89a');
   writer.word(width);
   writer.word(height);
-  writer.byte(0xf7); // global palette, 8 bits, 256 entries
+  writer.byte(0xf7);
   writer.byte(0);
   writer.byte(0);
   const palette = gifPalette();
@@ -521,11 +631,7 @@ async function buildGif(fields: SmPostFields, src: string, onProgress?: ExportPr
 
 function supportedMp4MimeType() {
   if (typeof MediaRecorder === 'undefined') return null;
-  const candidates = [
-    'video/mp4;codecs=avc1.42E01E',
-    'video/mp4;codecs=avc1',
-    'video/mp4',
-  ];
+  const candidates = ['video/mp4;codecs=avc1.42E01E', 'video/mp4;codecs=avc1', 'video/mp4'];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
 }
 
@@ -617,9 +723,7 @@ const SmPostCanvas = forwardRef<SmPostCanvasHandle, { fields: SmPostFields; onEr
       return () => { cancelled = true; };
     }, [onError]);
 
-    useEffect(() => {
-      paintVisible();
-    }, [fields]);
+    useEffect(() => { paintVisible(); }, [fields]);
 
     useEffect(() => {
       let cancelled = false;
@@ -637,7 +741,6 @@ const SmPostCanvas = forwardRef<SmPostCanvasHandle, { fields: SmPostFields; onEr
           paintVisible();
           return;
         }
-
         try {
           if (fields.mediaType === 'image') {
             const img = await loadImage(fields.imageUrl);
@@ -647,7 +750,6 @@ const SmPostCanvas = forwardRef<SmPostCanvasHandle, { fields: SmPostFields; onEr
             onError('');
             return;
           }
-
           const video = createVideo(fields.imageUrl, true);
           await waitForVideo(video);
           if (cancelled) return;
