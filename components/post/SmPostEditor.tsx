@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState } from 'react';
 import SmPostCanvas, { type ExportProgress, type SmPostCanvasHandle } from './SmPostCanvas';
-import { SAFE_MARGIN, SM_POST_DEFAULTS, type SmPostFields } from '@/lib/smPostTemplate';
+import {
+  SAFE_MARGIN,
+  SM_POST_DEFAULTS,
+  SM_POST_TEMPLATE_PRESETS,
+  type SmPostFields,
+  type SmPostTemplateId,
+} from '@/lib/smPostTemplate';
 
 type EditorTab = 'edit' | 'advanced';
 type ExportFormat = 'png' | 'gif' | 'mp4';
@@ -27,6 +33,26 @@ export default function SmPostEditor() {
 
   const set = <K extends keyof SmPostFields>(key: K, value: SmPostFields[K]) =>
     setFields((f) => ({ ...f, [key]: value }));
+
+  const onTemplateChange = (templateId: SmPostTemplateId) => {
+    setFields((current) => {
+      const previousPreset = SM_POST_TEMPLATE_PRESETS[current.templateId];
+      const nextPreset = SM_POST_TEMPLATE_PRESETS[templateId];
+      const stillUsingPresetCopy =
+        current.tag === previousPreset.tag &&
+        current.headline === previousPreset.headline &&
+        current.bodyText === previousPreset.bodyText;
+
+      if (stillUsingPresetCopy) return { ...current, ...nextPreset, templateId };
+
+      const next: SmPostFields = { ...current, templateId };
+      if ((templateId === '7' || templateId === '8') && current.headlineFontSize === previousPreset.headlineFontSize) {
+        next.headlineFontSize = 136;
+      }
+      if (templateId === '9' && current.bodyFontSize === previousPreset.bodyFontSize) next.bodyFontSize = 56;
+      return next;
+    });
+  };
 
   const onMediaPick = (file: File | undefined) => {
     if (!file) return;
@@ -62,18 +88,19 @@ export default function SmPostEditor() {
     setExporting(true);
     setExportProgress(exportFormat === 'png' ? null : 0);
     const onProgress: ExportProgress = (progress) => setExportProgress(progress);
+    const baseName = `post-${fields.templateId}`;
     try {
       if (!canvasRef.current) throw new Error('Canvas indisponível.');
       if (exportFormat === 'png') {
         const blob = await canvasRef.current.exportPng();
         if (!blob) throw new Error('Canvas indisponível.');
-        downloadBlob(blob, 'post.png');
+        downloadBlob(blob, `${baseName}.png`);
       } else if (exportFormat === 'gif') {
         const blob = await canvasRef.current.exportGif(onProgress);
-        downloadBlob(blob, 'post.gif');
+        downloadBlob(blob, `${baseName}.gif`);
       } else {
         const blob = await canvasRef.current.exportMp4(onProgress);
-        downloadBlob(blob, 'post.mp4');
+        downloadBlob(blob, `${baseName}.mp4`);
       }
       setError('');
     } catch (error) {
@@ -94,10 +121,14 @@ export default function SmPostEditor() {
         ? 'Baixar GIF (720×960)'
         : 'Baixar MP4 (1080×1440)';
 
+  const isBase = fields.templateId === '1';
+  const isHeadlineVariant = fields.templateId === '7' || fields.templateId === '8';
+  const isCopyVariant = fields.templateId === '9';
+
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de post · v03</small></h1>
+        <h1>FG Post Studio <small>Editor de post · v04</small></h1>
         <div className="sm-post-export-actions">
           <select
             className="sm-post-export-select"
@@ -143,6 +174,19 @@ export default function SmPostEditor() {
             <div className="sm-post-section-head"><span>Conteúdo do post</span></div>
 
             <label className="sm-post-field">
+              <span>Modelo</span>
+              <select value={fields.templateId} onChange={(e) => onTemplateChange(e.target.value as SmPostTemplateId)}>
+                <option value="1">Instagram post 1</option>
+                <option value="7">Instagram post 7</option>
+                <option value="8">Instagram post 8</option>
+                <option value="9">Instagram post 9</option>
+              </select>
+              <small>Modelos 7, 8 e 9 seguem os frames da page Test_SM-Post do Figma.</small>
+            </label>
+
+            <div className="sm-post-hairline" />
+
+            <label className="sm-post-field">
               <span>Mídia</span>
               <button type="button" className="sm-post-upload" onClick={() => fileInputRef.current?.click()}>
                 {fields.imageUrl ? 'Trocar mídia' : 'Enviar imagem ou vídeo'}
@@ -157,7 +201,7 @@ export default function SmPostEditor() {
               <small>
                 {fields.mediaType === 'video'
                   ? 'Vídeo em loop na prévia. MP4 sai sem áudio; GIF usa 10 fps.'
-                  : 'Aceita imagens e vídeos. Para vídeo, MP4 (H.264) e WebM oferecem a melhor compatibilidade.'}
+                  : 'Aceita imagens e vídeos. Zoom e posição continuam independentes do modelo.'}
               </small>
             </label>
 
@@ -192,50 +236,71 @@ export default function SmPostEditor() {
               <small>Altera apenas a logo principal do Favela Gaming.</small>
             </label>
 
-            <div className="sm-post-hairline" />
+            {(isBase || isCopyVariant) && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field">
+                  <span>{isCopyVariant ? 'Perfil / @' : 'Tag'}</span>
+                  <input type="text" value={fields.tag} maxLength={isCopyVariant ? 40 : 30} onChange={(e) => set('tag', e.target.value)} />
+                  <span className="sm-post-inline-check">
+                    <input type="checkbox" checked={fields.tagUppercase} onChange={(e) => set('tagUppercase', e.target.checked)} />
+                    Exibir em CAPSLOCK
+                  </span>
+                </label>
+              </>
+            )}
 
-            <label className="sm-post-field">
-              <span>Tag</span>
-              <input type="text" value={fields.tag} maxLength={30} onChange={(e) => set('tag', e.target.value)} />
-              <span className="sm-post-inline-check">
-                <input type="checkbox" checked={fields.tagUppercase} onChange={(e) => set('tagUppercase', e.target.checked)} />
-                Exibir em CAPSLOCK
-              </span>
-            </label>
+            {(isBase || isHeadlineVariant) && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field">
+                  <span>Headline</span>
+                  <textarea rows={4} value={fields.headline} maxLength={180} onChange={(e) => set('headline', e.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+                  <span className="sm-post-inline-check">
+                    <input type="checkbox" checked={fields.headlineUppercase} onChange={(e) => set('headlineUppercase', e.target.checked)} />
+                    Exibir em CAPSLOCK
+                  </span>
+                  <small>Use Enter para criar uma quebra de linha manual.</small>
+                </label>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Tamanho da headline <strong>{fields.headlineFontSize}px</strong></span>
+                  <input
+                    type="range"
+                    min={isHeadlineVariant ? 72 : 48}
+                    max={isHeadlineVariant ? 160 : 140}
+                    step="1"
+                    value={fields.headlineFontSize}
+                    onChange={(e) => set('headlineFontSize', Number(e.target.value))}
+                  />
+                </label>
+              </>
+            )}
 
-            <div className="sm-post-hairline" />
-
-            <label className="sm-post-field">
-              <span>Headline</span>
-              <textarea rows={4} value={fields.headline} maxLength={180} onChange={(e) => set('headline', e.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
-              <span className="sm-post-inline-check">
-                <input type="checkbox" checked={fields.headlineUppercase} onChange={(e) => set('headlineUppercase', e.target.checked)} />
-                Exibir em CAPSLOCK
-              </span>
-              <small>Use Enter para criar uma quebra de linha manual.</small>
-            </label>
-
-            <label className="sm-post-field sm-post-range-field">
-              <span>Tamanho da headline <strong>{fields.headlineFontSize}px</strong></span>
-              <input type="range" min="48" max="140" step="1" value={fields.headlineFontSize} onChange={(e) => set('headlineFontSize', Number(e.target.value))} />
-            </label>
-
-            <div className="sm-post-hairline" />
-
-            <label className="sm-post-field">
-              <span>Texto (body)</span>
-              <textarea rows={5} value={fields.bodyText} maxLength={320} onChange={(e) => set('bodyText', e.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
-              <span className="sm-post-inline-check">
-                <input type="checkbox" checked={fields.bodyUppercase} onChange={(e) => set('bodyUppercase', e.target.checked)} />
-                Exibir em CAPSLOCK
-              </span>
-              <small>Use Enter para criar uma quebra de linha manual.</small>
-            </label>
-
-            <label className="sm-post-field sm-post-range-field">
-              <span>Tamanho do body <strong>{fields.bodyFontSize}px</strong></span>
-              <input type="range" min="14" max="48" step="1" value={fields.bodyFontSize} onChange={(e) => set('bodyFontSize', Number(e.target.value))} />
-            </label>
+            {(isBase || isCopyVariant) && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field">
+                  <span>{isCopyVariant ? 'Texto principal' : 'Texto (body)'}</span>
+                  <textarea rows={5} value={fields.bodyText} maxLength={320} onChange={(e) => set('bodyText', e.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+                  <span className="sm-post-inline-check">
+                    <input type="checkbox" checked={fields.bodyUppercase} onChange={(e) => set('bodyUppercase', e.target.checked)} />
+                    Exibir em CAPSLOCK
+                  </span>
+                  <small>Use Enter para criar uma quebra de linha manual.</small>
+                </label>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Tamanho do texto <strong>{fields.bodyFontSize}px</strong></span>
+                  <input
+                    type="range"
+                    min={isCopyVariant ? 28 : 14}
+                    max={isCopyVariant ? 80 : 48}
+                    step="1"
+                    value={fields.bodyFontSize}
+                    onChange={(e) => set('bodyFontSize', Number(e.target.value))}
+                  />
+                </label>
+              </>
+            )}
 
             <div className="sm-post-hairline" />
 
@@ -274,19 +339,24 @@ export default function SmPostEditor() {
         ) : (
           <>
             <div className="sm-post-section-head"><span>Ajustes avançados</span></div>
-            <p className="sm-post-hint sm-post-tab-intro">Controles finos de posicionamento e espaçamento do conteúdo.</p>
-
-            <label className="sm-post-field sm-post-range-field">
-              <span>Espaço Tag → Headline <strong>{fields.tagHeadlineOffset > 0 ? '+' : ''}{fields.tagHeadlineOffset}px</strong></span>
-              <input type="range" min="-120" max="160" step="2" value={fields.tagHeadlineOffset} onChange={(e) => set('tagHeadlineOffset', Number(e.target.value))} />
-            </label>
-
-            <div className="sm-post-hairline" />
-
-            <label className="sm-post-field sm-post-range-field">
-              <span>Espaço Headline → Body <strong>{fields.headlineBodyOffset > 0 ? '+' : ''}{fields.headlineBodyOffset}px</strong></span>
-              <input type="range" min="-160" max="160" step="2" value={fields.headlineBodyOffset} onChange={(e) => set('headlineBodyOffset', Number(e.target.value))} />
-            </label>
+            {isBase ? (
+              <>
+                <p className="sm-post-hint sm-post-tab-intro">Controles finos de posicionamento e espaçamento do conteúdo.</p>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Espaço Tag → Headline <strong>{fields.tagHeadlineOffset > 0 ? '+' : ''}{fields.tagHeadlineOffset}px</strong></span>
+                  <input type="range" min="-120" max="160" step="2" value={fields.tagHeadlineOffset} onChange={(e) => set('tagHeadlineOffset', Number(e.target.value))} />
+                </label>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Espaço Headline → Body <strong>{fields.headlineBodyOffset > 0 ? '+' : ''}{fields.headlineBodyOffset}px</strong></span>
+                  <input type="range" min="-160" max="160" step="2" value={fields.headlineBodyOffset} onChange={(e) => set('headlineBodyOffset', Number(e.target.value))} />
+                </label>
+              </>
+            ) : (
+              <p className="sm-post-hint sm-post-tab-intro">
+                Os modelos {fields.templateId} preservam o posicionamento estrutural do Figma. Para ajustar a mídia, use Zoom e Posição na aba Edição.
+              </p>
+            )}
           </>
         )}
 
