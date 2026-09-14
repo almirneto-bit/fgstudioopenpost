@@ -8,8 +8,10 @@ import {
   SM_POST_LAYOUT_OPTIONS,
   SM_POST_LAYOUTS,
   createDefaultFields,
+  type FgLogoColor,
   type SmPostFields,
   type SmPostLayoutId,
+  type SmPostMediaType,
 } from '@/lib/smPostTemplate';
 import {
   ACTIVE_PROJECT_KEY,
@@ -22,6 +24,14 @@ import {
 } from '@/lib/smPostStorage';
 
 type EditorTab = 'edit' | 'advanced';
+type ExportFormat = 'png' | 'gif' | 'mp4';
+
+function inferMediaType(url: string | null, current?: SmPostMediaType): SmPostMediaType {
+  if (current) return current;
+  if (!url) return null;
+  if (/^data:video\//i.test(url) || /^blob:/i.test(url)) return 'video';
+  return 'image';
+}
 
 function normalizeProject(project: SmPostProject): SmPostProject {
   const slides = project.slides.length ? project.slides : [createSlide()];
@@ -29,9 +39,15 @@ function normalizeProject(project: SmPostProject): SmPostProject {
     const layoutId = slide.fields.layoutId && SM_POST_LAYOUTS[slide.fields.layoutId]
       ? slide.fields.layoutId
       : 'classic';
+    const defaults = createDefaultFields(layoutId);
     return {
       ...slide,
-      fields: { ...createDefaultFields(layoutId), ...slide.fields, layoutId },
+      fields: {
+        ...defaults,
+        ...slide.fields,
+        layoutId,
+        mediaType: inferMediaType(slide.fields.imageUrl ?? null, slide.fields.mediaType),
+      },
     };
   });
   const activeSlideId = normalizedSlides.some((slide) => slide.id === project.activeSlideId)
@@ -65,6 +81,8 @@ export default function SmPostEditor() {
   const [activeTab, setActiveTab] = useState<EditorTab>('edit');
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
+  const [exportProgress, setExportProgress] = useState(0);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +109,7 @@ export default function SmPostEditor() {
         }
       }
     }
-    restore();
+    void restore();
     return () => { cancelled = true; };
   }, []);
 
@@ -122,6 +140,10 @@ export default function SmPostEditor() {
   const fields = activeSlide?.fields;
   const layout = fields ? SM_POST_LAYOUTS[fields.layoutId] : SM_POST_LAYOUTS.classic;
 
+  useEffect(() => {
+    if (fields?.mediaType !== 'video' && exportFormat !== 'png') setExportFormat('png');
+  }, [fields?.mediaType, exportFormat]);
+
   const updateProject = (recipe: (current: SmPostProject) => SmPostProject) => {
     setProject((current) => current ? { ...recipe(current), updatedAt: Date.now() } : current);
   };
@@ -136,8 +158,13 @@ export default function SmPostEditor() {
     }));
   };
 
-  const onImagePick = (file: File | undefined) => {
+  const onMediaPick = (file: File | undefined) => {
     if (!file || !activeSlide) return;
+    const mediaType: SmPostMediaType = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
+    if (!mediaType) {
+      setError('Envie uma imagem ou um vídeo MP4/WebM.');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result !== 'string') return;
@@ -149,6 +176,7 @@ export default function SmPostEditor() {
               fields: {
                 ...slide.fields,
                 imageUrl: reader.result as string,
+                mediaType,
                 imageScale: 1,
                 imageOffsetX: 0,
                 imageOffsetY: 0,
@@ -156,8 +184,9 @@ export default function SmPostEditor() {
             }
           : slide),
       }));
+      setError('');
     };
-    reader.onerror = () => setError('Não foi possível ler a imagem selecionada.');
+    reader.onerror = () => setError('Não foi possível ler a mídia selecionada.');
     reader.readAsDataURL(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -170,11 +199,12 @@ export default function SmPostEditor() {
       activeSlideId: slide.id,
     }));
     setActiveTab('edit');
+    setExportFormat('png');
   };
 
   const changeLayout = (layoutId: SmPostLayoutId) => {
     if (!activeSlide) return;
-    const nextLayout = SM_POST_LAYOUTS[layoutId];
+    const defaults = createDefaultFields(layoutId);
     updateProject((current) => ({
       ...current,
       slides: current.slides.map((slide) => slide.id === activeSlide.id
@@ -183,8 +213,8 @@ export default function SmPostEditor() {
             fields: {
               ...slide.fields,
               layoutId,
-              headlineFontSize: nextLayout.headline.fontSize,
-              bodyFontSize: nextLayout.bodyText.fontSize,
+              headlineFontSize: defaults.headlineFontSize,
+              bodyFontSize: defaults.bodyFontSize,
               tagHeadlineOffset: 0,
               headlineBodyOffset: 0,
             },
@@ -239,6 +269,7 @@ export default function SmPostEditor() {
       setProject(next);
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
       setActiveTab('edit');
+      setExportFormat('png');
       setError('');
     } catch {
       setError('Não foi possível salvar a criação atual antes de iniciar outra.');
@@ -246,8 +277,7 @@ export default function SmPostEditor() {
   };
 
   const openProject = async (projectId: string) => {
-    if (!project) return;
-    if (projectId === project.id) return;
+    if (!project || projectId === project.id) return;
     try {
       await saveProject(project);
       const saved = await getProject(projectId);
@@ -255,6 +285,7 @@ export default function SmPostEditor() {
       const next = normalizeProject(saved);
       setProject(next);
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
+      setExportFormat('png');
       setError('');
     } catch {
       setError('Não foi possível abrir essa criação.');
@@ -264,15 +295,24 @@ export default function SmPostEditor() {
   const exportCurrent = async () => {
     if (!activeSlide) return;
     setExporting(true);
+    setExportProgress(0);
     try {
-      const blob = await canvasRef.current?.exportPng();
+      let blob: Blob | null | undefined;
+      if (exportFormat === 'gif') {
+        blob = await canvasRef.current?.exportGif(setExportProgress);
+      } else if (exportFormat === 'mp4') {
+        blob = await canvasRef.current?.exportMp4(setExportProgress);
+      } else {
+        blob = await canvasRef.current?.exportPng();
+      }
       if (!blob) throw new Error('Canvas indisponível.');
-      downloadBlob(blob, `${safeFilename(project?.name ?? 'post')}-${activeIndex + 1}.png`);
+      downloadBlob(blob, `${safeFilename(project?.name ?? 'post')}-${activeIndex + 1}.${exportFormat}`);
       setError('');
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Falha ao exportar.');
     } finally {
       setExporting(false);
+      setExportProgress(0);
     }
   };
 
@@ -300,16 +340,35 @@ export default function SmPostEditor() {
     return <div className="sm-post-loading">Carregando o editor…</div>;
   }
 
+  const isPost9 = layout.kind === 'post9';
+  const showTag = Boolean(layout.tag) || isPost9;
+  const showHeadline = !isPost9;
+  const showBody = layout.kind === 'standard' || isPost9;
+  const formatLabel = exportFormat.toUpperCase();
+
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v03</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v04</small></h1>
         <div className="sm-post-header-actions">
+          <select
+            className="sm-post-secondary-btn"
+            value={exportFormat}
+            onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
+            aria-label="Formato da lâmina"
+            disabled={exporting}
+          >
+            <option value="png">PNG</option>
+            {fields.mediaType === 'video' && <option value="gif">GIF</option>}
+            {fields.mediaType === 'video' && <option value="mp4">MP4</option>}
+          </select>
           <button type="button" className="sm-post-secondary-btn" onClick={exportCurrent} disabled={exporting}>
-            Baixar lâmina {activeIndex + 1}
+            {exporting && exportProgress > 0
+              ? `Gerando ${formatLabel} ${Math.round(exportProgress * 100)}%`
+              : `Baixar lâmina ${activeIndex + 1} · ${formatLabel}`}
           </button>
           <button type="button" className="sm-post-export-btn" onClick={exportCarousel} disabled={exporting}>
-            {exporting ? 'Gerando…' : `Baixar carrossel (${project.slides.length})`}
+            {exporting && exportProgress === 0 ? 'Gerando…' : `Baixar carrossel (${project.slides.length})`}
           </button>
         </div>
       </header>
@@ -340,7 +399,7 @@ export default function SmPostEditor() {
                 onClick={() => updateProject((current) => ({ ...current, activeSlideId: slide.id }))}
               >
                 <span>{index + 1}</span>
-                <span>{SM_POST_LAYOUTS[slide.fields.layoutId].shortName}</span>
+                <span>{SM_POST_LAYOUTS[slide.fields.layoutId]?.shortName ?? 'Clássico'}</span>
               </button>
             ))}
           </div>
@@ -357,9 +416,11 @@ export default function SmPostEditor() {
           <div className="sm-post-layout-grid">
             {SM_POST_LAYOUT_OPTIONS.map((option) => (
               <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)}>
-                <span className={`sm-post-layout-preview align-${option.headline.align} font-${option.id.startsWith('kanit') ? 'kanit' : 'vina'}`}>
+                <span
+                  className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}
+                >
                   {option.tag && <i />}
-                  <b>ABC</b>
+                  <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
                   <em />
                 </span>
                 <span>{option.shortName}</span>
@@ -406,15 +467,24 @@ export default function SmPostEditor() {
             </label>
 
             <label className="sm-post-field">
-              <span>Imagem</span>
-              <button type="button" className="sm-post-upload" onClick={() => fileInputRef.current?.click()}>{fields.imageUrl ? 'Trocar imagem' : 'Enviar imagem'}</button>
-              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={(event) => onImagePick(event.target.files?.[0])} />
+              <span>Mídia</span>
+              <button type="button" className="sm-post-upload" onClick={() => fileInputRef.current?.click()}>
+                {fields.imageUrl ? `Trocar ${fields.mediaType === 'video' ? 'vídeo' : 'imagem'}` : 'Enviar imagem ou vídeo'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/mp4,video/webm,video/quicktime"
+                hidden
+                onChange={(event) => onMediaPick(event.target.files?.[0])}
+              />
+              <small>Vídeos MP4/WebM podem ser exportados em GIF ou MP4. MP4 é exportado sem áudio.</small>
             </label>
 
             {fields.imageUrl && (
               <div className="sm-post-control-group">
                 <label className="sm-post-field sm-post-range-field">
-                  <span>Zoom da imagem <strong>{Math.round(fields.imageScale * 100)}%</strong></span>
+                  <span>Zoom da mídia <strong>{Math.round(fields.imageScale * 100)}%</strong></span>
                   <input type="range" min="1" max="2.5" step="0.01" value={fields.imageScale} onChange={(event) => setField('imageScale', Number(event.target.value))} />
                 </label>
                 <div className="sm-post-two-col">
@@ -426,40 +496,72 @@ export default function SmPostEditor() {
 
             <div className="sm-post-hairline" />
 
-            {layout.tag && (
+            <label className="sm-post-field">
+              <span>Cor da logo Favela Gaming</span>
+              <select value={fields.logoFgColor} onChange={(event) => setField('logoFgColor', event.target.value as FgLogoColor)}>
+                <option value="white">Branco</option>
+                <option value="black">Preto</option>
+                <option value="orange">Laranja</option>
+              </select>
+            </label>
+
+            {showTag && (
               <>
-                <label className="sm-post-field"><span>Tag</span><input type="text" value={fields.tag} maxLength={30} onChange={(event) => setField('tag', event.target.value)} /></label>
                 <div className="sm-post-hairline" />
+                <label className="sm-post-field">
+                  <span>{isPost9 ? 'Handle' : 'Tag'}</span>
+                  <input type="text" value={fields.tag} maxLength={40} onChange={(event) => setField('tag', event.target.value)} />
+                </label>
+                <label className="sm-post-toggle-field">
+                  <span><strong>CAPSLOCK</strong><small>Forçar caixa alta neste texto.</small></span>
+                  <input type="checkbox" checked={fields.tagUppercase} onChange={(event) => setField('tagUppercase', event.target.checked)} />
+                </label>
               </>
             )}
 
-            <label className="sm-post-field">
-              <span>Headline</span>
-              <textarea rows={4} value={fields.headline} maxLength={240} onChange={(event) => setField('headline', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
-              <small>Use Enter para criar uma quebra de linha manual.</small>
-            </label>
-            <label className="sm-post-field sm-post-range-field">
-              <span>Tamanho da headline <strong>{fields.headlineFontSize}px</strong></span>
-              <input type="range" min={layout.headline.minFontSize} max="190" step="1" value={fields.headlineFontSize} onChange={(event) => setField('headlineFontSize', Number(event.target.value))} />
-            </label>
+            {showHeadline && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field">
+                  <span>Headline</span>
+                  <textarea rows={4} value={fields.headline} maxLength={240} onChange={(event) => setField('headline', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+                  <small>Use Enter para criar uma quebra de linha manual.</small>
+                </label>
+                <label className="sm-post-toggle-field">
+                  <span><strong>CAPSLOCK</strong><small>Forçar caixa alta na headline.</small></span>
+                  <input type="checkbox" checked={fields.headlineUppercase} onChange={(event) => setField('headlineUppercase', event.target.checked)} />
+                </label>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Tamanho da headline <strong>{fields.headlineFontSize}px</strong></span>
+                  <input type="range" min={layout.headline.minFontSize} max="190" step="1" value={fields.headlineFontSize} onChange={(event) => setField('headlineFontSize', Number(event.target.value))} />
+                </label>
+              </>
+            )}
 
-            <div className="sm-post-hairline" />
-
-            <label className="sm-post-field">
-              <span>Texto (body)</span>
-              <textarea rows={5} value={fields.bodyText} maxLength={420} onChange={(event) => setField('bodyText', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
-              <small>Use Enter para criar uma quebra de linha manual.</small>
-            </label>
-            <label className="sm-post-field sm-post-range-field">
-              <span>Tamanho do body <strong>{fields.bodyFontSize}px</strong></span>
-              <input type="range" min="14" max="48" step="1" value={fields.bodyFontSize} onChange={(event) => setField('bodyFontSize', Number(event.target.value))} />
-            </label>
+            {showBody && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field">
+                  <span>{isPost9 ? 'Texto principal' : 'Texto (body)'}</span>
+                  <textarea rows={5} value={fields.bodyText} maxLength={520} onChange={(event) => setField('bodyText', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+                  <small>Use Enter para criar uma quebra de linha manual.</small>
+                </label>
+                <label className="sm-post-toggle-field">
+                  <span><strong>CAPSLOCK</strong><small>Forçar caixa alta neste texto.</small></span>
+                  <input type="checkbox" checked={fields.bodyUppercase} onChange={(event) => setField('bodyUppercase', event.target.checked)} />
+                </label>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Tamanho do texto <strong>{fields.bodyFontSize}px</strong></span>
+                  <input type="range" min={layout.bodyText.minFontSize} max={isPost9 ? 72 : 48} step="1" value={fields.bodyFontSize} onChange={(event) => setField('bodyFontSize', Number(event.target.value))} />
+                </label>
+              </>
+            )}
 
             <div className="sm-post-hairline" />
 
             <div className="sm-post-disclosure">
               <label className="sm-post-toggle-field">
-                <span><strong>Camada de cor</strong><small>Cor aplicada sobre a imagem.</small></span>
+                <span><strong>Camada de cor</strong><small>Cor aplicada sobre a mídia.</small></span>
                 <input type="checkbox" checked={fields.colorOverlayEnabled} onChange={(event) => setField('colorOverlayEnabled', event.target.checked)} />
               </label>
               {fields.colorOverlayEnabled && (
@@ -491,25 +593,34 @@ export default function SmPostEditor() {
             <p className="sm-post-hint sm-post-tab-intro">Controles finos da lâmina selecionada.</p>
 
             <label className="sm-post-toggle-field">
-              <span><strong>Sombra inferior</strong><small>Gradiente escuro na base.</small></span>
+              <span><strong>Sombra inferior</strong><small>Gradiente escuro na base da área de mídia.</small></span>
               <input type="checkbox" checked={fields.bottomShadowEnabled} onChange={(event) => setField('bottomShadowEnabled', event.target.checked)} />
             </label>
             <div className="sm-post-hairline" />
             <label className="sm-post-toggle-field">
-              <span><strong>Sombra superior</strong><small>Gradiente escuro no topo.</small></span>
+              <span><strong>Sombra superior</strong><small>Gradiente escuro no topo da área de mídia.</small></span>
               <input type="checkbox" checked={fields.topShadowEnabled} onChange={(event) => setField('topShadowEnabled', event.target.checked)} />
             </label>
-            <div className="sm-post-hairline" />
 
-            <label className="sm-post-field sm-post-range-field">
-              <span>{layout.tag ? 'Espaço Tag → Headline' : 'Posição vertical da headline'} <strong>{fields.tagHeadlineOffset > 0 ? '+' : ''}{fields.tagHeadlineOffset}px</strong></span>
-              <input type="range" min="-180" max="180" step="2" value={fields.tagHeadlineOffset} onChange={(event) => setField('tagHeadlineOffset', Number(event.target.value))} />
-            </label>
-            <div className="sm-post-hairline" />
-            <label className="sm-post-field sm-post-range-field">
-              <span>Espaço Headline → Body <strong>{fields.headlineBodyOffset > 0 ? '+' : ''}{fields.headlineBodyOffset}px</strong></span>
-              <input type="range" min="-180" max="180" step="2" value={fields.headlineBodyOffset} onChange={(event) => setField('headlineBodyOffset', Number(event.target.value))} />
-            </label>
+            {layout.kind !== 'post9' && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field sm-post-range-field">
+                  <span>{layout.tag ? 'Espaço Tag → Headline' : 'Posição vertical da headline'} <strong>{fields.tagHeadlineOffset > 0 ? '+' : ''}{fields.tagHeadlineOffset}px</strong></span>
+                  <input type="range" min="-180" max="180" step="2" value={fields.tagHeadlineOffset} onChange={(event) => setField('tagHeadlineOffset', Number(event.target.value))} />
+                </label>
+              </>
+            )}
+
+            {layout.kind === 'standard' && (
+              <>
+                <div className="sm-post-hairline" />
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Espaço Headline → Body <strong>{fields.headlineBodyOffset > 0 ? '+' : ''}{fields.headlineBodyOffset}px</strong></span>
+                  <input type="range" min="-180" max="180" step="2" value={fields.headlineBodyOffset} onChange={(event) => setField('headlineBodyOffset', Number(event.target.value))} />
+                </label>
+              </>
+            )}
 
             <div className="sm-post-hairline" />
             <label className="sm-post-toggle-field">
@@ -520,7 +631,10 @@ export default function SmPostEditor() {
         )}
 
         {error && <p role="alert" className="sm-post-error">{error}</p>}
-        <p className="sm-post-hint">O histórico mantém automaticamente as cinco criações mais recentes neste navegador.</p>
+        <p className="sm-post-hint">
+          O histórico mantém automaticamente as cinco criações mais recentes neste navegador.
+          {project.slides.some((slide) => slide.fields.mediaType === 'video') && ' No ZIP do carrossel, vídeos usam o primeiro frame em PNG.'}
+        </p>
       </section>
 
       <main className="sm-post-stage">
