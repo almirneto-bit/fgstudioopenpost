@@ -1,7 +1,7 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
-import { POST_HEIGHT, POST_WIDTH, SM_POST_TEMPLATE, type SmPostFields } from '@/lib/smPostTemplate';
+import { FG_LOGO_COLORS, POST_HEIGHT, POST_WIDTH, SM_POST_TEMPLATE, type SmPostFields } from '@/lib/smPostTemplate';
 
 export type SmPostCanvasHandle = {
   exportPng: () => Promise<Blob | null>;
@@ -112,6 +112,24 @@ function drawCover(
   ctx.drawImage(img, dx, dy, drawW, drawH);
 }
 
+function drawTintedImage(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  box: { x: number; y: number; width: number; height: number },
+  color: string,
+) {
+  const buffer = document.createElement('canvas');
+  buffer.width = Math.max(1, Math.round(box.width));
+  buffer.height = Math.max(1, Math.round(box.height));
+  const bctx = buffer.getContext('2d');
+  if (!bctx) return;
+  bctx.drawImage(img, 0, 0, buffer.width, buffer.height);
+  bctx.globalCompositeOperation = 'source-in';
+  bctx.fillStyle = color;
+  bctx.fillRect(0, 0, buffer.width, buffer.height);
+  ctx.drawImage(buffer, box.x, box.y, box.width, box.height);
+}
+
 function drawNoise(ctx: CanvasRenderingContext2D, intensity: number, grainSize: number) {
   if (intensity <= 0) return;
 
@@ -172,7 +190,7 @@ async function draw(ctx: CanvasRenderingContext2D, fields: SmPostFields) {
 
   try {
     const logoFg = await loadImage(t.logoFg.src);
-    ctx.drawImage(logoFg, t.logoFg.x, t.logoFg.y, t.logoFg.width, t.logoFg.height);
+    drawTintedImage(ctx, logoFg, t.logoFg, FG_LOGO_COLORS[fields.logoFgColor] ?? FG_LOGO_COLORS.white);
     const logoSecondary = await loadImage(t.logoSecondary.src);
     ctx.drawImage(logoSecondary, t.logoSecondary.x, t.logoSecondary.y, t.logoSecondary.width, t.logoSecondary.height);
   } catch {
