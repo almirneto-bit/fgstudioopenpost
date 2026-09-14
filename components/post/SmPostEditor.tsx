@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import SmPostCanvas, { type SmPostCanvasHandle } from './SmPostCanvas';
+import SmPostCanvas, { type ExportProgress, type SmPostCanvasHandle } from './SmPostCanvas';
 import { SAFE_MARGIN, SM_POST_DEFAULTS, type SmPostFields } from '@/lib/smPostTemplate';
 
 type EditorTab = 'edit' | 'advanced';
+type ExportFormat = 'png' | 'gif' | 'mp4';
 
 export default function SmPostEditor() {
   const [fields, setFields] = useState<SmPostFields>(SM_POST_DEFAULTS);
@@ -14,6 +15,8 @@ export default function SmPostEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
+  const [exportProgress, setExportProgress] = useState<number | null>(null);
 
   useEffect(
     () => () => {
@@ -25,39 +28,92 @@ export default function SmPostEditor() {
   const set = <K extends keyof SmPostFields>(key: K, value: SmPostFields[K]) =>
     setFields((f) => ({ ...f, [key]: value }));
 
-  const onImagePick = (file: File | undefined) => {
+  const onMediaPick = (file: File | undefined) => {
     if (!file) return;
+    const mediaType = file.type.startsWith('video/') ? 'video' : file.type.startsWith('image/') ? 'image' : null;
+    if (!mediaType) {
+      setError('Formato não suportado. Envie uma imagem ou vídeo.');
+      return;
+    }
     if (fields.imageUrl) URL.revokeObjectURL(fields.imageUrl);
     const url = URL.createObjectURL(file);
-    setFields((f) => ({ ...f, imageUrl: url, imageScale: 1, imageOffsetX: 0, imageOffsetY: 0 }));
+    setFields((f) => ({
+      ...f,
+      imageUrl: url,
+      mediaType,
+      imageScale: 1,
+      imageOffsetX: 0,
+      imageOffsetY: 0,
+    }));
+    setExportFormat(mediaType === 'video' ? 'mp4' : 'png');
+    setError('');
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   };
 
   const onExport = async () => {
     setExporting(true);
+    setExportProgress(exportFormat === 'png' ? null : 0);
+    const onProgress: ExportProgress = (progress) => setExportProgress(progress);
     try {
-      const blob = await canvasRef.current?.exportPng();
-      if (!blob) throw new Error('Canvas indisponível.');
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'post.png';
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (!canvasRef.current) throw new Error('Canvas indisponível.');
+      if (exportFormat === 'png') {
+        const blob = await canvasRef.current.exportPng();
+        if (!blob) throw new Error('Canvas indisponível.');
+        downloadBlob(blob, 'post.png');
+      } else if (exportFormat === 'gif') {
+        const blob = await canvasRef.current.exportGif(onProgress);
+        downloadBlob(blob, 'post.gif');
+      } else {
+        const blob = await canvasRef.current.exportMp4(onProgress);
+        downloadBlob(blob, 'post.mp4');
+      }
       setError('');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Falha ao exportar.');
     } finally {
       setExporting(false);
+      setExportProgress(null);
     }
   };
+
+  const exportLabel = exporting
+    ? exportProgress == null
+      ? 'Gerando…'
+      : `Gerando… ${Math.round(exportProgress * 100)}%`
+    : exportFormat === 'png'
+      ? 'Baixar PNG (1080×1440)'
+      : exportFormat === 'gif'
+        ? 'Baixar GIF (720×960)'
+        : 'Baixar MP4 (1080×1440)';
 
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de post · v02</small></h1>
-        <button type="button" className="sm-post-export-btn" onClick={onExport} disabled={exporting}>
-          {exporting ? 'Gerando…' : 'Baixar PNG (1080×1440)'}
-        </button>
+        <h1>FG Post Studio <small>Editor de post · v03</small></h1>
+        <div className="sm-post-export-actions">
+          <select
+            className="sm-post-export-select"
+            value={exportFormat}
+            onChange={(e) => setExportFormat(e.target.value as ExportFormat)}
+            disabled={exporting}
+            aria-label="Formato de exportação"
+          >
+            <option value="png">PNG</option>
+            {fields.mediaType === 'video' && <option value="gif">GIF</option>}
+            {fields.mediaType === 'video' && <option value="mp4">MP4</option>}
+          </select>
+          <button type="button" className="sm-post-export-btn" onClick={onExport} disabled={exporting}>
+            {exportLabel}
+          </button>
+        </div>
       </header>
 
       <section className="sm-post-fields">
@@ -87,17 +143,28 @@ export default function SmPostEditor() {
             <div className="sm-post-section-head"><span>Conteúdo do post</span></div>
 
             <label className="sm-post-field">
-              <span>Imagem</span>
+              <span>Mídia</span>
               <button type="button" className="sm-post-upload" onClick={() => fileInputRef.current?.click()}>
-                {fields.imageUrl ? 'Trocar imagem' : 'Enviar imagem'}
+                {fields.imageUrl ? 'Trocar mídia' : 'Enviar imagem ou vídeo'}
               </button>
-              <input ref={fileInputRef} type="file" accept="image/*" hidden onChange={(e) => onImagePick(e.target.files?.[0])} />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/mp4,video/webm,video/quicktime,video/x-m4v"
+                hidden
+                onChange={(e) => onMediaPick(e.target.files?.[0])}
+              />
+              <small>
+                {fields.mediaType === 'video'
+                  ? 'Vídeo em loop na prévia. MP4 sai sem áudio; GIF usa 10 fps.'
+                  : 'Aceita imagens e vídeos. Para vídeo, MP4 (H.264) e WebM oferecem a melhor compatibilidade.'}
+              </small>
             </label>
 
             {fields.imageUrl && (
               <div className="sm-post-control-group">
                 <label className="sm-post-field sm-post-range-field">
-                  <span>Zoom da imagem <strong>{Math.round(fields.imageScale * 100)}%</strong></span>
+                  <span>Zoom da mídia <strong>{Math.round(fields.imageScale * 100)}%</strong></span>
                   <input type="range" min="1" max="2.5" step="0.01" value={fields.imageScale} onChange={(e) => set('imageScale', Number(e.target.value))} />
                 </label>
                 <div className="sm-post-two-col">
@@ -130,6 +197,10 @@ export default function SmPostEditor() {
             <label className="sm-post-field">
               <span>Tag</span>
               <input type="text" value={fields.tag} maxLength={30} onChange={(e) => set('tag', e.target.value)} />
+              <span className="sm-post-inline-check">
+                <input type="checkbox" checked={fields.tagUppercase} onChange={(e) => set('tagUppercase', e.target.checked)} />
+                Exibir em CAPSLOCK
+              </span>
             </label>
 
             <div className="sm-post-hairline" />
@@ -137,6 +208,10 @@ export default function SmPostEditor() {
             <label className="sm-post-field">
               <span>Headline</span>
               <textarea rows={4} value={fields.headline} maxLength={180} onChange={(e) => set('headline', e.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+              <span className="sm-post-inline-check">
+                <input type="checkbox" checked={fields.headlineUppercase} onChange={(e) => set('headlineUppercase', e.target.checked)} />
+                Exibir em CAPSLOCK
+              </span>
               <small>Use Enter para criar uma quebra de linha manual.</small>
             </label>
 
@@ -150,6 +225,10 @@ export default function SmPostEditor() {
             <label className="sm-post-field">
               <span>Texto (body)</span>
               <textarea rows={5} value={fields.bodyText} maxLength={320} onChange={(e) => set('bodyText', e.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+              <span className="sm-post-inline-check">
+                <input type="checkbox" checked={fields.bodyUppercase} onChange={(e) => set('bodyUppercase', e.target.checked)} />
+                Exibir em CAPSLOCK
+              </span>
               <small>Use Enter para criar uma quebra de linha manual.</small>
             </label>
 
@@ -212,7 +291,7 @@ export default function SmPostEditor() {
         )}
 
         {error && <p role="alert" className="sm-post-error">{error}</p>}
-        <p className="sm-post-hint">As guias de margem nunca são incluídas na imagem final exportada.</p>
+        <p className="sm-post-hint">As guias de margem nunca são incluídas no arquivo final exportado.</p>
       </section>
 
       <main className="sm-post-stage">

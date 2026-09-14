@@ -15,6 +15,7 @@ export const FG_LOGO_COLORS = {
 } as const;
 
 export type FgLogoColor = keyof typeof FG_LOGO_COLORS;
+export type SmPostMediaType = 'image' | 'video' | null;
 
 export const SM_POST_TEMPLATE = {
   canvas: { width: POST_WIDTH, height: POST_HEIGHT },
@@ -83,6 +84,7 @@ export const SM_POST_TEMPLATE = {
 
 export type SmPostFields = {
   imageUrl: string | null;
+  mediaType: SmPostMediaType;
   imageScale: number;
   imageOffsetX: number;
   imageOffsetY: number;
@@ -91,16 +93,20 @@ export type SmPostFields = {
   noiseIntensity: number;
   noiseSize: number;
   tag: string;
+  tagUppercase: boolean;
   headline: string;
+  headlineUppercase: boolean;
   headlineFontSize: number;
   tagHeadlineOffset: number;
   bodyText: string;
+  bodyUppercase: boolean;
   bodyFontSize: number;
   headlineBodyOffset: number;
 };
 
 export const SM_POST_DEFAULTS: SmPostFields = {
   imageUrl: null,
+  mediaType: null,
   imageScale: 1,
   imageOffsetX: 0,
   imageOffsetY: 0,
@@ -109,11 +115,14 @@ export const SM_POST_DEFAULTS: SmPostFields = {
   noiseIntensity: 35,
   noiseSize: 4,
   tag: 'COMPETITIVO',
+  tagUppercase: false,
   headline: 'a favela tá pronta pra entrar na arena!',
+  headlineUppercase: false,
   headlineFontSize: 104,
   tagHeadlineOffset: 0,
   bodyText:
     'Monte a sua equipe, faça sua inscrição e tenha um pro de Clash Royale no comando do seu time!',
+  bodyUppercase: false,
   bodyFontSize: 24,
   headlineBodyOffset: 0,
 };
