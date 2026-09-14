@@ -116,6 +116,18 @@ export default function SmPostEditor() {
             <div className="sm-post-hairline" />
 
             <label className="sm-post-field">
+              <span>Cor da logo Favela Gaming</span>
+              <select value={fields.logoFgColor} onChange={(e) => set('logoFgColor', e.target.value as SmPostFields['logoFgColor'])}>
+                <option value="white">Branco</option>
+                <option value="black">Preto</option>
+                <option value="orange">Laranja</option>
+              </select>
+              <small>Altera apenas a logo principal do Favela Gaming.</small>
+            </label>
+
+            <div className="sm-post-hairline" />
+
+            <label className="sm-post-field">
               <span>Tag</span>
               <input type="text" value={fields.tag} maxLength={30} onChange={(e) => set('tag', e.target.value)} />
             </label>
