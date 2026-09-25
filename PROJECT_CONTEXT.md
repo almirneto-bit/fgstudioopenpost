@@ -49,7 +49,9 @@ A aplicação deve preservar todas as funcionalidades abaixo.
 
 - Aceitar imagem ou vídeo em uma lâmina.
 - Imagens continuam funcionando como antes.
-- Vídeos devem tocar em loop na prévia.
+- Vídeos abrem pausados na prévia e usam uma timeline simplificada abaixo do canvas.
+- A timeline permite play/pause, navegação pelo tempo e definição de início/fim do recorte.
+- O preview respeita o intervalo de recorte e pausa ao atingir o ponto final.
 - Controles compartilhados para imagem e vídeo:
   - Zoom.
   - Posição horizontal.
@@ -59,15 +61,15 @@ A aplicação deve preservar todas as funcionalidades abaixo.
 ### Exportação
 
 - PNG em `1080 x 1440`.
-- GIF para lâminas com vídeo.
-- MP4 para lâminas com vídeo.
+- GIF para lâminas com vídeo, respeitando o intervalo de recorte.
+- MP4 para lâminas com vídeo, respeitando o intervalo de recorte.
 - MP4 pode ser exportado sem áudio ou, opcionalmente, mantendo a faixa de áudio original do vídeo.
 - A opção de manter áudio depende do suporte do navegador a captura de mídia; quando indisponível, a aplicação deve avisar claramente em vez de gerar um arquivo silencioso sem indicação.
 - GIF pensado para reduzir peso, usando resolução e frame rate menores que o MP4 quando necessário.
 - Exportação deve ser feita no navegador sempre que possível.
 - Evitar depender de FFmpeg nativo em servidor/Vercel.
 - ZIP do carrossel contém PNGs das lâminas.
-- Quando uma lâmina usa vídeo e entra no ZIP, usar um frame estático para o PNG.
+- Quando uma lâmina usa vídeo e entra no ZIP, usar um frame estático correspondente ao início do recorte.
 
 ### Textos
 
@@ -76,9 +78,11 @@ A aplicação deve preservar todas as funcionalidades abaixo.
 - Body.
 - Quebras de linha manuais devem ser preservadas.
 - Headline e body sem limite de caracteres na interface.
-- Tamanho da headline ajustável sem limite máximo.
-- Tamanho do body ajustável sem limite máximo.
-- Headline e body respeitam diretamente o tamanho definido pelo usuário, inclusive quando ultrapassam a caixa original do template.
+- Os controles tipográficos de headline e body ficam agrupados em uma área compacta chamada **Edições**.
+- Tamanho da headline ajustável por slider entre 8 e 250 px.
+- Tamanho do body ajustável por slider entre 8 e 250 px.
+- Headline e body respeitam diretamente o tamanho definido pelo usuário, sem redução automática para caber no box.
+- Headline e body possuem controle independente de entrelinha entre 0.5× e 2.0×.
 - Controles de espaçamento entre blocos de texto.
 - CAPSLOCK independente por campo:
   - Tag ou Handle.
@@ -313,6 +317,30 @@ Incluiu:
 - Criação de um backlog de versões mantido dentro do repositório.
 - Branch de segurança criada antes da alteração: `backup/main-before-v05-2026-09-25`.
 
+### Atualização v06
+
+Commit principal:
+
+`0c1dc466360b47495d5d56a7ed4522043fac016e`
+
+Ajuste complementar:
+
+`46e136510da6efc69894fb4f7300be45c52cfeed`
+
+Incluiu:
+
+- Agrupamento dos ajustes de headline e body em blocos compactos de **Edições**.
+- CAPSLOCK mantido dentro do respectivo bloco.
+- Tamanho de headline e body convertido para slider com limite máximo de 250 px.
+- Controle independente de espaçamento entre linhas para headline e body.
+- Timeline simplificada abaixo do preview para vídeos.
+- Play/pause e navegação pelo tempo.
+- Recorte de início e fim do vídeo.
+- Preview, GIF e MP4 respeitando o recorte.
+- Áudio do MP4 mantendo sincronização com o intervalo selecionado.
+- Frame estático do ZIP passando a usar o início do recorte.
+- Branch de segurança: `backup/main-before-v06-2026-09-25`.
+
 ## 9. Referência de exportação em vídeo
 
 Projeto usado como referência para a implementação de vídeo:
@@ -361,8 +389,13 @@ Antes de finalizar qualquer nova feature, confirmar:
 - MP4 funciona em vídeo?
 - A opção de áudio no MP4 funciona quando suportada e falha com mensagem clara quando não suportada?
 - Headline e body continuam sem limite de caracteres?
-- Headline e body aceitam tamanhos acima dos antigos limites?
+- Sliders de tamanho de headline e body respeitam a faixa de 8 a 250 px?
+- Entrelinha de headline e body funciona na prévia e exportação?
+- A timeline de vídeo permite play/pause e navegação?
+- O recorte de vídeo limita corretamente preview, GIF e MP4?
+- O áudio do MP4 permanece sincronizado com o recorte quando suportado?
 - Posts 7, 8 e 9 respeitam a cor-base escolhida?
+- ZIP do carrossel usa o frame inicial do recorte para vídeos?
 - ZIP do carrossel funciona?
 - O build do Next.js passa?
 
