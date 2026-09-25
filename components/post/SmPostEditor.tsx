@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
   SAFE_MARGIN,
+  SPECIAL_LAYOUT_COLORS,
   SM_POST_LAYOUT_OPTIONS,
   SM_POST_LAYOUTS,
   createDefaultFields,
@@ -215,6 +216,7 @@ export default function SmPostEditor() {
               layoutId,
               headlineFontSize: defaults.headlineFontSize,
               bodyFontSize: defaults.bodyFontSize,
+              layoutBackgroundColor: defaults.layoutBackgroundColor,
               tagHeadlineOffset: 0,
               headlineBodyOffset: 0,
             },
@@ -349,7 +351,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v04</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v05</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -478,8 +480,15 @@ export default function SmPostEditor() {
                 hidden
                 onChange={(event) => onMediaPick(event.target.files?.[0])}
               />
-              <small>Vídeos MP4/WebM podem ser exportados em GIF ou MP4. MP4 é exportado sem áudio.</small>
+              <small>Vídeos MP4/WebM podem ser exportados em GIF ou MP4.</small>
             </label>
+
+            {fields.mediaType === 'video' && (
+              <label className="sm-post-toggle-field">
+                <span><strong>Manter áudio no MP4</strong><small>Inclui a faixa de áudio original quando o navegador oferecer captura compatível.</small></span>
+                <input type="checkbox" checked={fields.keepVideoAudio} onChange={(event) => setField('keepVideoAudio', event.target.checked)} />
+              </label>
+            )}
 
             {fields.imageUrl && (
               <div className="sm-post-control-group">
@@ -505,6 +514,30 @@ export default function SmPostEditor() {
               </select>
             </label>
 
+            {layout.kind !== 'standard' && (
+              <>
+                <div className="sm-post-hairline" />
+                <div className="sm-post-two-col">
+                  <label className="sm-post-field">
+                    <span>Cor do layout</span>
+                    <select
+                      value={SPECIAL_LAYOUT_COLORS.some((option) => option.value === fields.layoutBackgroundColor) ? fields.layoutBackgroundColor : 'custom'}
+                      onChange={(event) => {
+                        if (event.target.value !== 'custom') setField('layoutBackgroundColor', event.target.value);
+                      }}
+                    >
+                      {SPECIAL_LAYOUT_COLORS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      <option value="custom">Personalizada</option>
+                    </select>
+                  </label>
+                  <label className="sm-post-field sm-post-color-field">
+                    <span>Personalizada</span>
+                    <input type="color" value={fields.layoutBackgroundColor} onChange={(event) => setField('layoutBackgroundColor', event.target.value)} />
+                  </label>
+                </div>
+              </>
+            )}
+
             {showTag && (
               <>
                 <div className="sm-post-hairline" />
@@ -524,16 +557,17 @@ export default function SmPostEditor() {
                 <div className="sm-post-hairline" />
                 <label className="sm-post-field">
                   <span>Headline</span>
-                  <textarea rows={4} value={fields.headline} maxLength={240} onChange={(event) => setField('headline', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+                  <textarea rows={4} value={fields.headline} onChange={(event) => setField('headline', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
                   <small>Use Enter para criar uma quebra de linha manual.</small>
                 </label>
                 <label className="sm-post-toggle-field">
                   <span><strong>CAPSLOCK</strong><small>Forçar caixa alta na headline.</small></span>
                   <input type="checkbox" checked={fields.headlineUppercase} onChange={(event) => setField('headlineUppercase', event.target.checked)} />
                 </label>
-                <label className="sm-post-field sm-post-range-field">
-                  <span>Tamanho da headline <strong>{fields.headlineFontSize}px</strong></span>
-                  <input type="range" min={layout.headline.minFontSize} max="190" step="1" value={fields.headlineFontSize} onChange={(event) => setField('headlineFontSize', Number(event.target.value))} />
+                <label className="sm-post-field">
+                  <span>Tamanho da headline</span>
+                  <input type="number" min="1" step="1" value={fields.headlineFontSize} onChange={(event) => setField('headlineFontSize', Math.max(1, Number(event.target.value) || 1))} />
+                  <small>Sem limite máximo. O valor é aplicado diretamente ao texto.</small>
                 </label>
               </>
             )}
@@ -543,16 +577,17 @@ export default function SmPostEditor() {
                 <div className="sm-post-hairline" />
                 <label className="sm-post-field">
                   <span>{isPost9 ? 'Texto principal' : 'Texto (body)'}</span>
-                  <textarea rows={5} value={fields.bodyText} maxLength={520} onChange={(event) => setField('bodyText', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
+                  <textarea rows={5} value={fields.bodyText} onChange={(event) => setField('bodyText', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
                   <small>Use Enter para criar uma quebra de linha manual.</small>
                 </label>
                 <label className="sm-post-toggle-field">
                   <span><strong>CAPSLOCK</strong><small>Forçar caixa alta neste texto.</small></span>
                   <input type="checkbox" checked={fields.bodyUppercase} onChange={(event) => setField('bodyUppercase', event.target.checked)} />
                 </label>
-                <label className="sm-post-field sm-post-range-field">
-                  <span>Tamanho do texto <strong>{fields.bodyFontSize}px</strong></span>
-                  <input type="range" min={layout.bodyText.minFontSize} max={isPost9 ? 72 : 48} step="1" value={fields.bodyFontSize} onChange={(event) => setField('bodyFontSize', Number(event.target.value))} />
+                <label className="sm-post-field">
+                  <span>Tamanho do texto</span>
+                  <input type="number" min="1" step="1" value={fields.bodyFontSize} onChange={(event) => setField('bodyFontSize', Math.max(1, Number(event.target.value) || 1))} />
+                  <small>Sem limite máximo. O valor é aplicado diretamente ao texto.</small>
                 </label>
               </>
             )}

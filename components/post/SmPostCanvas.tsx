@@ -39,6 +39,17 @@ function textForDisplay(text: string, uppercase: boolean) {
   return uppercase ? text.toLocaleUpperCase('pt-BR') : text;
 }
 
+function specialLayoutTextColor(background: string, fallback: string) {
+  const match = /^#([0-9a-f]{6})$/i.exec(background.trim());
+  if (!match) return fallback;
+  const value = Number.parseInt(match[1], 16);
+  const red = (value >> 16) & 255;
+  const green = (value >> 8) & 255;
+  const blue = value & 255;
+  const yiq = (red * 299 + green * 587 + blue * 114) / 1000;
+  return yiq >= 155 ? '#0C0C0F' : '#FFFFFF';
+}
+
 function measureLine(ctx: CanvasRenderingContext2D, text: string, letterSpacing = 0) {
   return ctx.measureText(text).width + letterSpacing * Math.max(0, [...text].length - 1);
 }
@@ -127,10 +138,16 @@ function drawParagraph(
     lineHeight: number;
     color: string;
     letterSpacing?: number;
+    autoFit?: boolean;
   },
 ) {
   if (!text) return;
-  const fitted = fitFontSize(ctx, text, box, opts);
+  const fitted = opts.autoFit === false
+    ? (() => {
+        ctx.font = `${opts.fontWeight} ${opts.fontSize}px ${opts.fontFamily}`;
+        return { fontSize: opts.fontSize, lines: wrapLines(ctx, text, box.width, opts.letterSpacing) };
+      })()
+    : fitFontSize(ctx, text, box, opts);
   ctx.font = `${opts.fontWeight} ${fitted.fontSize}px ${opts.fontFamily}`;
   ctx.fillStyle = opts.color;
   ctx.textAlign = opts.align;
@@ -383,7 +400,11 @@ function drawScene(
   const layout = SM_POST_LAYOUTS[fields.layoutId] ?? SM_POST_LAYOUTS.classic;
   const mediaBox = layout.media ?? SM_POST_SHARED.image;
   ctx.clearRect(0, 0, POST_WIDTH, POST_HEIGHT);
-  ctx.fillStyle = layout.background ?? '#1a1a1a';
+  const layoutBackground = layout.kind === 'standard'
+    ? (layout.background ?? '#1a1a1a')
+    : (fields.layoutBackgroundColor || layout.background || '#1a1a1a');
+  const specialTextColor = specialLayoutTextColor(layoutBackground, '#FFFFFF');
+  ctx.fillStyle = layoutBackground;
   ctx.fillRect(0, 0, POST_WIDTH, POST_HEIGHT);
 
   if (media) {
@@ -426,12 +447,14 @@ function drawScene(
     if (layout.handle) {
       drawParagraph(ctx, textForDisplay(fields.tag, fields.tagUppercase), layout.handle, {
         ...layout.handle,
+        color: specialTextColor,
         fontSize: layout.handle.fontSize,
       });
     }
     drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), layout.bodyText, {
       ...layout.bodyText,
       fontSize: fields.bodyFontSize,
+      autoFit: false,
     });
     return;
   }
@@ -446,7 +469,9 @@ function drawScene(
   };
   drawParagraph(ctx, textForDisplay(fields.headline, fields.headlineUppercase), headlineBox, {
     ...layout.headline,
+    color: layout.kind === 'post7' || layout.kind === 'post8' ? specialTextColor : layout.headline.color,
     fontSize: fields.headlineFontSize,
+    autoFit: false,
   });
 
   if (layout.kind === 'standard' && fields.bodyText) {
@@ -457,6 +482,7 @@ function drawScene(
     drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), bodyBox, {
       ...layout.bodyText,
       fontSize: fields.bodyFontSize,
+      autoFit: false,
     });
   }
 }
@@ -689,19 +715,50 @@ async function buildGif(fields: SmPostFields, src: string, onProgress?: ExportPr
   return writer.blob();
 }
 
-function supportedMp4MimeType() {
+function supportedMp4MimeType(includeAudio: boolean) {
   if (typeof MediaRecorder === 'undefined') return null;
-  const candidates = [
-    'video/mp4;codecs=avc1.42E01E',
-    'video/mp4;codecs=avc1',
-    'video/mp4',
-  ];
+  const candidates = includeAudio
+    ? [
+        'video/mp4;codecs="avc1.42E01E,mp4a.40.2"',
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4',
+      ]
+    : [
+        'video/mp4;codecs=avc1.42E01E',
+        'video/mp4;codecs=avc1',
+        'video/mp4',
+      ];
   return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? null;
 }
 
+type CapturableVideo = HTMLVideoElement & {
+  captureStream?: () => MediaStream;
+  webkitCaptureStream?: () => MediaStream;
+  mozCaptureStream?: () => MediaStream;
+};
+
+function captureOriginalMediaStream(video: HTMLVideoElement) {
+  const source = video as CapturableVideo;
+  const capture = source.captureStream ?? source.webkitCaptureStream ?? source.mozCaptureStream;
+  if (!capture) {
+    throw new Error('Este navegador não consegue capturar o áudio do vídeo original. Desative “Manter áudio no MP4” ou use uma versão atual do Chrome/Edge.');
+  }
+  const stream = capture.call(source);
+  if (!stream.getAudioTracks().length) {
+    for (const track of stream.getTracks()) track.stop();
+    throw new Error('Não foi encontrada uma faixa de áudio compatível neste vídeo.');
+  }
+  return stream;
+}
+
 async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportProgress) {
-  const mimeType = supportedMp4MimeType();
-  if (!mimeType) throw new Error('Este navegador não oferece gravação MP4/H.264. Use uma versão atual do Chrome ou Edge.');
+  const includeAudio = fields.keepVideoAudio;
+  const mimeType = supportedMp4MimeType(includeAudio);
+  if (!mimeType) {
+    throw new Error(includeAudio
+      ? 'Este navegador não oferece exportação MP4/H.264 com áudio AAC. Desative “Manter áudio no MP4” ou use uma versão atual do Chrome/Edge.'
+      : 'Este navegador não oferece gravação MP4/H.264. Use uma versão atual do Chrome ou Edge.');
+  }
 
   const video = createVideo(src, false);
   await waitForVideo(video);
@@ -717,9 +774,23 @@ async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportPr
   await waitForSeek(video, 0);
   drawScene(ctx, fields, assets, video);
 
-  const stream = canvas.captureStream(MP4_FPS);
+  const canvasStream = canvas.captureStream(MP4_FPS);
+  let sourceMediaStream: MediaStream | null = null;
+  let stream = canvasStream;
+  if (includeAudio) {
+    sourceMediaStream = captureOriginalMediaStream(video);
+    stream = new MediaStream([
+      ...canvasStream.getVideoTracks(),
+      ...sourceMediaStream.getAudioTracks(),
+    ]);
+  }
+
   const chunks: BlobPart[] = [];
-  const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 10_000_000 });
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: 10_000_000,
+    ...(includeAudio ? { audioBitsPerSecond: 192_000 } : {}),
+  });
   recorder.addEventListener('dataavailable', (event) => { if (event.data.size) chunks.push(event.data); });
 
   let raf = 0;
@@ -751,6 +822,14 @@ async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportPr
     cancelAnimationFrame(raf);
     if (progressTimer) clearInterval(progressTimer);
     for (const track of stream.getTracks()) track.stop();
+    for (const track of canvasStream.getTracks()) {
+      if (track.readyState === 'live') track.stop();
+    }
+    if (sourceMediaStream) {
+      for (const track of sourceMediaStream.getTracks()) {
+        if (track.readyState === 'live') track.stop();
+      }
+    }
     video.pause();
     video.removeAttribute('src');
     video.load();

@@ -8,7 +8,19 @@ export const POST_WIDTH = 1080;
 export const POST_HEIGHT = 1440;
 export const SAFE_MARGIN = 88;
 export const BRAND_ORANGE = '#EF7828';
+export const BRAND_RED = '#DA291C';
+export const BRAND_CYAN = '#18D7F6';
+export const BRAND_YELLOW = '#FCCF27';
+export const BRAND_BLACK = '#0C0C0F';
 export const BRAND_OFF_WHITE = '#FBF8F1';
+
+export const SPECIAL_LAYOUT_COLORS = [
+  { value: BRAND_ORANGE, label: 'Laranja' },
+  { value: BRAND_RED, label: 'Vermelho' },
+  { value: BRAND_CYAN, label: 'Ciano' },
+  { value: BRAND_YELLOW, label: 'Amarelo' },
+  { value: BRAND_BLACK, label: 'Preto' },
+] as const;
 
 export const FG_LOGO_COLORS = {
   white: '#EFEFEF',
@@ -247,10 +259,12 @@ export type SmPostFields = {
   layoutId: SmPostLayoutId;
   imageUrl: string | null;
   mediaType: SmPostMediaType;
+  keepVideoAudio: boolean;
   imageScale: number;
   imageOffsetX: number;
   imageOffsetY: number;
   logoFgColor: FgLogoColor;
+  layoutBackgroundColor: string;
   bottomShadowEnabled: boolean;
   topShadowEnabled: boolean;
   colorOverlayEnabled: boolean;
@@ -278,10 +292,12 @@ export function createDefaultFields(layoutId: SmPostLayoutId = 'classic'): SmPos
     layoutId,
     imageUrl: null,
     mediaType: null,
+    keepVideoAudio: false,
     imageScale: 1,
     imageOffsetX: 0,
     imageOffsetY: 0,
     logoFgColor: 'white',
+    layoutBackgroundColor: layout.background ?? BRAND_ORANGE,
     bottomShadowEnabled: !special,
     topShadowEnabled: false,
     colorOverlayEnabled: !special,
