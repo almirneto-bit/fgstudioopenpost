@@ -61,7 +61,8 @@ A aplicação deve preservar todas as funcionalidades abaixo.
 - PNG em `1080 x 1440`.
 - GIF para lâminas com vídeo.
 - MP4 para lâminas com vídeo.
-- MP4 atualmente sem áudio.
+- MP4 pode ser exportado sem áudio ou, opcionalmente, mantendo a faixa de áudio original do vídeo.
+- A opção de manter áudio depende do suporte do navegador a captura de mídia; quando indisponível, a aplicação deve avisar claramente em vez de gerar um arquivo silencioso sem indicação.
 - GIF pensado para reduzir peso, usando resolução e frame rate menores que o MP4 quando necessário.
 - Exportação deve ser feita no navegador sempre que possível.
 - Evitar depender de FFmpeg nativo em servidor/Vercel.
@@ -74,9 +75,10 @@ A aplicação deve preservar todas as funcionalidades abaixo.
 - Headline.
 - Body.
 - Quebras de linha manuais devem ser preservadas.
-- Tamanho da headline ajustável.
-- Tamanho do body ajustável.
-- Ajuste automático de texto para evitar estouro quando aplicável.
+- Headline e body sem limite de caracteres na interface.
+- Tamanho da headline ajustável sem limite máximo.
+- Tamanho do body ajustável sem limite máximo.
+- Headline e body respeitam diretamente o tamanho definido pelo usuário, inclusive quando ultrapassam a caixa original do template.
 - Controles de espaçamento entre blocos de texto.
 - CAPSLOCK independente por campo:
   - Tag ou Handle.
@@ -161,6 +163,11 @@ Referências identificadas:
 
 Características gerais desses modelos:
 
+- Posts 7, 8 e 9 permitem trocar a cor-base do layout.
+- Presets atuais: laranja, vermelho, ciano, amarelo e preto.
+- Também existe seletor de cor personalizada.
+- Em fundos claros, textos de destaque dos Posts 7 e 8 e o handle do Post 9 ajustam automaticamente o contraste entre branco e preto.
+
 ### Post 7
 
 - Fundo laranja.
@@ -211,6 +218,7 @@ Estrutura principal:
 - `public/post/logo-fg.svg`
 - `public/post/logo-secondary.svg`
 - `styles/tokens.css`
+- `VERSION_BACKLOG.md`
 
 Bibliotecas relevantes:
 
@@ -233,6 +241,7 @@ Bibliotecas relevantes:
 8. Antes de enviar para `main`, validar pelo menos o build do Next.js.
 9. Não interpretar falha da etapa `Configure GitHub Pages` como falha da aplicação se `Build static site` tiver passado.
 10. Quando houver risco de sobrescrever uma versão estável, criar branch de segurança antes.
+11. Toda alteração funcional consolidada deve ganhar uma entrada em `VERSION_BACKLOG.md`, com data, resumo e commit de referência.
 
 ## 8. Histórico importante
 
@@ -287,6 +296,23 @@ Esse commit integrou:
 
 O build estático passou nessa integração, e o Vercel reportou deploy concluído com sucesso.
 
+### Atualização v05
+
+Commit funcional:
+
+`8a316267759ccd55a30455e4c899034a4c5aad35`
+
+Incluiu:
+
+- Opção de manter o áudio original no MP4.
+- Remoção dos limites de caracteres de headline e body.
+- Remoção do limite máximo de tamanho para headline e body.
+- Aplicação direta do tamanho escolhido pelo usuário, sem auto-redução desses dois campos.
+- Variações de cor para Posts 7, 8 e 9, com presets e cor personalizada.
+- Contraste automático de texto nos fundos dos layouts especiais.
+- Criação de um backlog de versões mantido dentro do repositório.
+- Branch de segurança criada antes da alteração: `backup/main-before-v05-2026-09-25`.
+
 ## 9. Referência de exportação em vídeo
 
 Projeto usado como referência para a implementação de vídeo:
@@ -333,6 +359,10 @@ Antes de finalizar qualquer nova feature, confirmar:
 - PNG funciona?
 - GIF funciona em vídeo?
 - MP4 funciona em vídeo?
+- A opção de áudio no MP4 funciona quando suportada e falha com mensagem clara quando não suportada?
+- Headline e body continuam sem limite de caracteres?
+- Headline e body aceitam tamanhos acima dos antigos limites?
+- Posts 7, 8 e 9 respeitam a cor-base escolhida?
 - ZIP do carrossel funciona?
 - O build do Next.js passa?
 
