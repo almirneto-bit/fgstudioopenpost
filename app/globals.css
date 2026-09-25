@@ -80,11 +80,35 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .sm-post-disclosure-panel .sm-post-field{padding:8px 0}
 .sm-post-color-field{display:grid;grid-template-columns:1fr 54px;align-items:center}
 .sm-post-color-field input[type=color]{height:36px;padding:3px}
+.sm-post-text-edits{margin:-4px 0 16px;padding:10px 12px 12px;background:var(--card-inset);border:1px solid var(--line);border-radius:var(--r-ctrl)}
+.sm-post-text-edits-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg-muted);padding-bottom:4px}
+.sm-post-text-edits .is-compact{padding:8px 0}
+.sm-post-text-edits .sm-post-toggle-field.is-compact{border-bottom:1px solid var(--line)}
+.sm-post-text-edits .sm-post-range-field+.sm-post-range-field{padding-top:4px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
-.sm-post-stage{grid-column:3;grid-row:2;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:28px;container-type:size;background-image:radial-gradient(var(--stage-dot) 1px,transparent 1px);background-size:16px 16px}
+.sm-post-stage{grid-column:3;grid-row:2;min-width:0;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:28px;container-type:size;background-image:radial-gradient(var(--stage-dot) 1px,transparent 1px);background-size:16px 16px}
 .sm-post-canvas-wrap{position:relative;width:min(100cqw,75cqh);aspect-ratio:3/4;box-shadow:0 8px 24px var(--stage-shadow);outline:1px solid var(--stage-edge)}
+.sm-post-stage.has-video .sm-post-canvas-wrap{width:min(100cqw,62cqh)}
 .sm-post-canvas{display:block;width:100%;height:100%}
 .sm-post-safe-area{position:absolute;pointer-events:none;border:1px dashed rgba(255,255,255,.9);box-shadow:0 0 0 1px rgba(0,0,0,.32);z-index:2}
+.sm-post-video-timeline{width:min(100%,720px);padding:12px 14px;background:var(--card);border:1px solid var(--line);border-radius:var(--r-ctrl);box-shadow:0 6px 20px var(--stage-shadow)}
+.sm-post-video-controls,.sm-post-trim-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:11px;color:var(--fg-muted)}
+.sm-post-video-play{min-width:64px;border:1px solid var(--line);background:var(--inverse-bg);color:var(--inverse-fg);padding:6px 10px;border-radius:var(--r-ctrl);font-weight:700}
+.sm-post-video-seek{display:block;margin:8px 0 10px}
+.sm-post-video-seek input{width:100%;margin:0}
+.sm-post-trim-head strong{color:var(--fg-label)}
+.sm-post-trim-range{position:relative;height:26px;margin-top:6px}
+.sm-post-trim-track,.sm-post-trim-selection{position:absolute;left:0;right:0;top:11px;height:4px;border-radius:999px}
+.sm-post-trim-track{background:var(--line)}
+.sm-post-trim-selection{left:var(--trim-start);right:calc(100% - var(--trim-end));background:var(--fg)}
+.sm-post-trim-handle{position:absolute;inset:0;width:100%;height:26px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;pointer-events:none}
+.sm-post-trim-handle::-webkit-slider-runnable-track{height:4px;background:transparent}
+.sm-post-trim-handle::-moz-range-track{height:4px;background:transparent}
+.sm-post-trim-handle::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:22px;margin-top:-9px;border-radius:4px;border:2px solid var(--card);background:var(--fg);box-shadow:0 0 0 1px var(--line);pointer-events:auto;cursor:ew-resize}
+.sm-post-trim-handle::-moz-range-thumb{width:14px;height:22px;border-radius:4px;border:2px solid var(--card);background:var(--fg);box-shadow:0 0 0 1px var(--line);pointer-events:auto;cursor:ew-resize}
+.sm-post-trim-handle.is-start{z-index:3}
+.sm-post-trim-handle.is-end{z-index:2}
 .sm-post-error{color:#b42318;font-size:12px}
 .sm-post-loading{min-height:100dvh;display:grid;place-items:center;background:var(--stage);color:var(--fg-muted)}
 
@@ -105,6 +129,9 @@ button:disabled{cursor:not-allowed;opacity:.45}
   .sm-post-layout-grid{grid-template-columns:repeat(6,minmax(86px,1fr));overflow-x:auto}
   .sm-post-slide-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr))}
   .sm-post-stage{grid-column:1;grid-row:3;height:min(72vh,720px);min-height:420px;padding:20px}
+  .sm-post-stage.has-video{height:min(82vh,820px)}
+  .sm-post-stage.has-video .sm-post-canvas-wrap{width:min(100cqw,58cqh)}
+  .sm-post-video-timeline{width:min(100%,620px)}
   .sm-post-fields{grid-column:1;grid-row:4;overflow:visible;border-right:0;border-top:1px solid var(--line)}
 }
 

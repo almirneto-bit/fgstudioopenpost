@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import JSZip from 'jszip';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
@@ -26,6 +26,16 @@ import {
 
 type EditorTab = 'edit' | 'advanced';
 type ExportFormat = 'png' | 'gif' | 'mp4';
+type VideoPreviewState = { duration: number; currentTime: number; isPlaying: boolean };
+
+const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
+
+function formatVideoTime(seconds: number) {
+  const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  const minutes = Math.floor(safe / 60);
+  const remaining = Math.floor(safe % 60);
+  return `${minutes}:${String(remaining).padStart(2, '0')}`;
+}
 
 function inferMediaType(url: string | null, current?: SmPostMediaType): SmPostMediaType {
   if (current) return current;
@@ -48,6 +58,12 @@ function normalizeProject(project: SmPostProject): SmPostProject {
         ...slide.fields,
         layoutId,
         mediaType: inferMediaType(slide.fields.imageUrl ?? null, slide.fields.mediaType),
+        headlineFontSize: Math.min(250, Math.max(8, Number(slide.fields.headlineFontSize ?? defaults.headlineFontSize))),
+        bodyFontSize: Math.min(250, Math.max(8, Number(slide.fields.bodyFontSize ?? defaults.bodyFontSize))),
+        headlineLineHeight: Math.min(2, Math.max(0.5, Number(slide.fields.headlineLineHeight ?? defaults.headlineLineHeight))),
+        bodyLineHeight: Math.min(2, Math.max(0.5, Number(slide.fields.bodyLineHeight ?? defaults.bodyLineHeight))),
+        videoTrimStart: Math.max(0, Number(slide.fields.videoTrimStart ?? 0)),
+        videoTrimEnd: slide.fields.videoTrimEnd == null ? null : Math.max(0, Number(slide.fields.videoTrimEnd)),
       },
     };
   });
@@ -84,6 +100,7 @@ export default function SmPostEditor() {
   const [exporting, setExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
   const [exportProgress, setExportProgress] = useState(0);
+  const [videoPreview, setVideoPreview] = useState<VideoPreviewState>(EMPTY_VIDEO_PREVIEW);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -145,6 +162,10 @@ export default function SmPostEditor() {
     if (fields?.mediaType !== 'video' && exportFormat !== 'png') setExportFormat('png');
   }, [fields?.mediaType, exportFormat]);
 
+  useEffect(() => {
+    setVideoPreview(EMPTY_VIDEO_PREVIEW);
+  }, [activeSlide?.id, fields?.imageUrl, fields?.mediaType]);
+
   const updateProject = (recipe: (current: SmPostProject) => SmPostProject) => {
     setProject((current) => current ? { ...recipe(current), updatedAt: Date.now() } : current);
   };
@@ -178,6 +199,8 @@ export default function SmPostEditor() {
                 ...slide.fields,
                 imageUrl: reader.result as string,
                 mediaType,
+                videoTrimStart: 0,
+                videoTrimEnd: null,
                 imageScale: 1,
                 imageOffsetX: 0,
                 imageOffsetY: 0,
@@ -215,7 +238,9 @@ export default function SmPostEditor() {
               ...slide.fields,
               layoutId,
               headlineFontSize: defaults.headlineFontSize,
+              headlineLineHeight: defaults.headlineLineHeight,
               bodyFontSize: defaults.bodyFontSize,
+              bodyLineHeight: defaults.bodyLineHeight,
               layoutBackgroundColor: defaults.layoutBackgroundColor,
               tagHeadlineOffset: 0,
               headlineBodyOffset: 0,
@@ -347,11 +372,36 @@ export default function SmPostEditor() {
   const showHeadline = !isPost9;
   const showBody = layout.kind === 'standard' || isPost9;
   const formatLabel = exportFormat.toUpperCase();
+  const videoDuration = videoPreview.duration;
+  const trimStart = Math.min(fields.videoTrimStart, videoDuration || fields.videoTrimStart);
+  const trimEnd = videoDuration > 0
+    ? Math.min(fields.videoTrimEnd ?? videoDuration, videoDuration)
+    : (fields.videoTrimEnd ?? 0);
+  const trimStartPercent = videoDuration > 0 ? (trimStart / videoDuration) * 100 : 0;
+  const trimEndPercent = videoDuration > 0 ? (trimEnd / videoDuration) * 100 : 100;
+  const timelineStyle = {
+    '--trim-start': `${trimStartPercent}%`,
+    '--trim-end': `${trimEndPercent}%`,
+  } as CSSProperties;
+
+  const updateTrimStart = (value: number) => {
+    if (!videoDuration) return;
+    const next = Math.max(0, Math.min(value, Math.max(0, trimEnd - 0.05)));
+    setField('videoTrimStart', next);
+    canvasRef.current?.seekVideo(next);
+  };
+
+  const updateTrimEnd = (value: number) => {
+    if (!videoDuration) return;
+    const next = Math.min(videoDuration, Math.max(value, Math.min(videoDuration, trimStart + 0.05)));
+    setField('videoTrimEnd', next);
+    if (videoPreview.currentTime > next) canvasRef.current?.seekVideo(next);
+  };
 
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v05</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v06</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -560,15 +610,21 @@ export default function SmPostEditor() {
                   <textarea rows={4} value={fields.headline} onChange={(event) => setField('headline', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
                   <small>Use Enter para criar uma quebra de linha manual.</small>
                 </label>
-                <label className="sm-post-toggle-field">
-                  <span><strong>CAPSLOCK</strong><small>Forçar caixa alta na headline.</small></span>
-                  <input type="checkbox" checked={fields.headlineUppercase} onChange={(event) => setField('headlineUppercase', event.target.checked)} />
-                </label>
-                <label className="sm-post-field">
-                  <span>Tamanho da headline</span>
-                  <input type="number" min="1" step="1" value={fields.headlineFontSize} onChange={(event) => setField('headlineFontSize', Math.max(1, Number(event.target.value) || 1))} />
-                  <small>Sem limite máximo. O valor é aplicado diretamente ao texto.</small>
-                </label>
+                <div className="sm-post-text-edits">
+                  <div className="sm-post-text-edits-title">Edições</div>
+                  <label className="sm-post-toggle-field is-compact">
+                    <span><strong>CAPSLOCK</strong><small>Forçar caixa alta na headline.</small></span>
+                    <input type="checkbox" checked={fields.headlineUppercase} onChange={(event) => setField('headlineUppercase', event.target.checked)} />
+                  </label>
+                  <label className="sm-post-field sm-post-range-field is-compact">
+                    <span>Tamanho <strong>{fields.headlineFontSize}px</strong></span>
+                    <input type="range" min="8" max="250" step="1" value={fields.headlineFontSize} onChange={(event) => setField('headlineFontSize', Number(event.target.value))} />
+                  </label>
+                  <label className="sm-post-field sm-post-range-field is-compact">
+                    <span>Entrelinha <strong>{fields.headlineLineHeight.toFixed(2)}×</strong></span>
+                    <input type="range" min="0.5" max="2" step="0.05" value={fields.headlineLineHeight} onChange={(event) => setField('headlineLineHeight', Number(event.target.value))} />
+                  </label>
+                </div>
               </>
             )}
 
@@ -580,15 +636,21 @@ export default function SmPostEditor() {
                   <textarea rows={5} value={fields.bodyText} onChange={(event) => setField('bodyText', event.target.value)} placeholder="Use Enter para controlar as quebras de linha" />
                   <small>Use Enter para criar uma quebra de linha manual.</small>
                 </label>
-                <label className="sm-post-toggle-field">
-                  <span><strong>CAPSLOCK</strong><small>Forçar caixa alta neste texto.</small></span>
-                  <input type="checkbox" checked={fields.bodyUppercase} onChange={(event) => setField('bodyUppercase', event.target.checked)} />
-                </label>
-                <label className="sm-post-field">
-                  <span>Tamanho do texto</span>
-                  <input type="number" min="1" step="1" value={fields.bodyFontSize} onChange={(event) => setField('bodyFontSize', Math.max(1, Number(event.target.value) || 1))} />
-                  <small>Sem limite máximo. O valor é aplicado diretamente ao texto.</small>
-                </label>
+                <div className="sm-post-text-edits">
+                  <div className="sm-post-text-edits-title">Edições</div>
+                  <label className="sm-post-toggle-field is-compact">
+                    <span><strong>CAPSLOCK</strong><small>Forçar caixa alta neste texto.</small></span>
+                    <input type="checkbox" checked={fields.bodyUppercase} onChange={(event) => setField('bodyUppercase', event.target.checked)} />
+                  </label>
+                  <label className="sm-post-field sm-post-range-field is-compact">
+                    <span>Tamanho <strong>{fields.bodyFontSize}px</strong></span>
+                    <input type="range" min="8" max="250" step="1" value={fields.bodyFontSize} onChange={(event) => setField('bodyFontSize', Number(event.target.value))} />
+                  </label>
+                  <label className="sm-post-field sm-post-range-field is-compact">
+                    <span>Entrelinha <strong>{fields.bodyLineHeight.toFixed(2)}×</strong></span>
+                    <input type="range" min="0.5" max="2" step="0.05" value={fields.bodyLineHeight} onChange={(event) => setField('bodyLineHeight', Number(event.target.value))} />
+                  </label>
+                </div>
               </>
             )}
 
@@ -672,9 +734,14 @@ export default function SmPostEditor() {
         </p>
       </section>
 
-      <main className="sm-post-stage">
+      <main className={fields.mediaType === 'video' ? 'sm-post-stage has-video' : 'sm-post-stage'}>
         <div className="sm-post-canvas-wrap">
-          <SmPostCanvas ref={canvasRef} fields={fields} onError={setError} />
+          <SmPostCanvas
+            ref={canvasRef}
+            fields={fields}
+            onError={setError}
+            onVideoStateChange={setVideoPreview}
+          />
           {showSafeArea && (
             <div
               className="sm-post-safe-area"
@@ -688,6 +755,67 @@ export default function SmPostEditor() {
             />
           )}
         </div>
+
+        {fields.mediaType === 'video' && fields.imageUrl && (
+          <div className="sm-post-video-timeline">
+            <div className="sm-post-video-controls">
+              <button
+                type="button"
+                className="sm-post-video-play"
+                onClick={() => canvasRef.current?.togglePlayback()}
+                disabled={!videoDuration}
+                aria-label={videoPreview.isPlaying ? 'Pausar vídeo' : 'Reproduzir vídeo'}
+              >
+                {videoPreview.isPlaying ? 'Pausar' : 'Play'}
+              </button>
+              <span>{formatVideoTime(videoPreview.currentTime)} / {formatVideoTime(videoDuration)}</span>
+            </div>
+
+            <label className="sm-post-video-seek">
+              <span className="sr-only">Posição do vídeo</span>
+              <input
+                type="range"
+                min="0"
+                max={videoDuration || 0}
+                step="0.01"
+                value={Math.min(videoPreview.currentTime, videoDuration || 0)}
+                disabled={!videoDuration}
+                onChange={(event) => canvasRef.current?.seekVideo(Number(event.target.value))}
+              />
+            </label>
+
+            <div className="sm-post-trim-head">
+              <strong>Recorte</strong>
+              <span>{formatVideoTime(trimStart)} → {formatVideoTime(trimEnd)}</span>
+            </div>
+            <div className="sm-post-trim-range" style={timelineStyle}>
+              <div className="sm-post-trim-track" />
+              <div className="sm-post-trim-selection" />
+              <input
+                className="sm-post-trim-handle is-start"
+                aria-label="Início do recorte"
+                type="range"
+                min="0"
+                max={videoDuration || 0}
+                step="0.05"
+                value={trimStart}
+                disabled={!videoDuration}
+                onChange={(event) => updateTrimStart(Number(event.target.value))}
+              />
+              <input
+                className="sm-post-trim-handle is-end"
+                aria-label="Fim do recorte"
+                type="range"
+                min="0"
+                max={videoDuration || 0}
+                step="0.05"
+                value={trimEnd}
+                disabled={!videoDuration}
+                onChange={(event) => updateTrimEnd(Number(event.target.value))}
+              />
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -260,6 +260,8 @@ export type SmPostFields = {
   imageUrl: string | null;
   mediaType: SmPostMediaType;
   keepVideoAudio: boolean;
+  videoTrimStart: number;
+  videoTrimEnd: number | null;
   imageScale: number;
   imageOffsetX: number;
   imageOffsetY: number;
@@ -278,10 +280,12 @@ export type SmPostFields = {
   headline: string;
   headlineUppercase: boolean;
   headlineFontSize: number;
+  headlineLineHeight: number;
   tagHeadlineOffset: number;
   bodyText: string;
   bodyUppercase: boolean;
   bodyFontSize: number;
+  bodyLineHeight: number;
   headlineBodyOffset: number;
 };
 
@@ -293,6 +297,8 @@ export function createDefaultFields(layoutId: SmPostLayoutId = 'classic'): SmPos
     imageUrl: null,
     mediaType: null,
     keepVideoAudio: false,
+    videoTrimStart: 0,
+    videoTrimEnd: null,
     imageScale: 1,
     imageOffsetX: 0,
     imageOffsetY: 0,
@@ -311,10 +317,12 @@ export function createDefaultFields(layoutId: SmPostLayoutId = 'classic'): SmPos
     headline: 'Nas periferias, o game também é espaço de expressão, conexão e oportunidade.',
     headlineUppercase: false,
     headlineFontSize: layout.headline.fontSize,
+    headlineLineHeight: layout.headline.lineHeight,
     tagHeadlineOffset: 0,
     bodyText: 'Os games se tornaram um espaço de encontro entre diferentes pessoas, histórias e referências.',
     bodyUppercase: false,
     bodyFontSize: layout.bodyText.fontSize,
+    bodyLineHeight: layout.bodyText.lineHeight,
     headlineBodyOffset: 0,
   };
 

@@ -24,6 +24,14 @@ export type SmPostCanvasHandle = {
   exportPng: () => Promise<Blob | null>;
   exportGif: (onProgress?: ExportProgress) => Promise<Blob>;
   exportMp4: (onProgress?: ExportProgress) => Promise<Blob>;
+  togglePlayback: () => void;
+  seekVideo: (time: number) => void;
+};
+
+type VideoPreviewState = {
+  duration: number;
+  currentTime: number;
+  isPlaying: boolean;
 };
 
 type PreparedAssets = {
@@ -454,6 +462,7 @@ function drawScene(
     drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), layout.bodyText, {
       ...layout.bodyText,
       fontSize: fields.bodyFontSize,
+      lineHeight: fields.bodyLineHeight,
       autoFit: false,
     });
     return;
@@ -471,6 +480,7 @@ function drawScene(
     ...layout.headline,
     color: layout.kind === 'post7' || layout.kind === 'post8' ? specialTextColor : layout.headline.color,
     fontSize: fields.headlineFontSize,
+    lineHeight: fields.headlineLineHeight,
     autoFit: false,
   });
 
@@ -482,6 +492,7 @@ function drawScene(
     drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), bodyBox, {
       ...layout.bodyText,
       fontSize: fields.bodyFontSize,
+      lineHeight: fields.bodyLineHeight,
       autoFit: false,
     });
   }
@@ -683,7 +694,11 @@ async function buildGif(fields: SmPostFields, src: string, onProgress?: ExportPr
   await waitForVideo(video);
   const duration = Number.isFinite(video.duration) ? video.duration : 0;
   if (!duration) throw new Error('Não foi possível identificar a duração do vídeo.');
-  if (duration > GIF_MAX_DURATION) throw new Error(`Para manter o arquivo viável, o GIF aceita vídeos de até ${GIF_MAX_DURATION}s.`);
+  const trimStart = Math.max(0, Math.min(fields.videoTrimStart, duration));
+  const trimEnd = Math.min(fields.videoTrimEnd ?? duration, duration);
+  const trimmedDuration = trimEnd - trimStart;
+  if (trimmedDuration <= 0.01) throw new Error('O recorte do vídeo precisa ter uma duração maior que zero.');
+  if (trimmedDuration > GIF_MAX_DURATION) throw new Error(`Para manter o arquivo viável, o GIF aceita recortes de até ${GIF_MAX_DURATION}s.`);
 
   const assets = await prepareAssets();
   const full = makeCanvas();
@@ -694,11 +709,11 @@ async function buildGif(fields: SmPostFields, src: string, onProgress?: ExportPr
 
   const writer = new GifWriter();
   createGifHeader(writer, GIF_WIDTH, GIF_HEIGHT);
-  const totalFrames = Math.max(1, Math.ceil(duration * GIF_FPS));
+  const totalFrames = Math.max(1, Math.ceil(trimmedDuration * GIF_FPS));
   const delayCs = Math.max(2, Math.round(100 / GIF_FPS));
 
   for (let frame = 0; frame < totalFrames; frame++) {
-    await waitForSeek(video, frame / GIF_FPS);
+    await waitForSeek(video, Math.min(trimEnd - 0.001, trimStart + frame / GIF_FPS));
     drawScene(fullCtx, fields, assets, video);
     stagingCtx.clearRect(0, 0, GIF_WIDTH, GIF_HEIGHT);
     stagingCtx.drawImage(full, 0, 0, GIF_WIDTH, GIF_HEIGHT);
@@ -764,14 +779,18 @@ async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportPr
   await waitForVideo(video);
   const duration = Number.isFinite(video.duration) ? video.duration : 0;
   if (!duration) throw new Error('Não foi possível identificar a duração do vídeo.');
+  const trimStart = Math.max(0, Math.min(fields.videoTrimStart, duration));
+  const trimEnd = Math.min(fields.videoTrimEnd ?? duration, duration);
+  const trimmedDuration = trimEnd - trimStart;
+  if (trimmedDuration <= 0.01) throw new Error('O recorte do vídeo precisa ter uma duração maior que zero.');
 
   const assets = await prepareAssets();
   const canvas = makeCanvas();
   const ctx = canvas.getContext('2d');
   if (!ctx || typeof canvas.captureStream !== 'function') throw new Error('Seu navegador não oferece exportação de vídeo pelo canvas.');
 
-  video.currentTime = 0;
-  await waitForSeek(video, 0);
+  video.currentTime = trimStart;
+  await waitForSeek(video, trimStart);
   drawScene(ctx, fields, assets, video);
 
   const canvasStream = canvas.captureStream(MP4_FPS);
@@ -795,9 +814,15 @@ async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportPr
 
   let raf = 0;
   let progressTimer: ReturnType<typeof setInterval> | undefined;
+  let finishPlayback: (() => void) | null = null;
   const paint = () => {
     drawScene(ctx, fields, assets, video);
-    if (!video.ended) raf = requestAnimationFrame(paint);
+    if (video.currentTime >= trimEnd || video.ended) {
+      video.pause();
+      finishPlayback?.();
+      return;
+    }
+    raf = requestAnimationFrame(paint);
   };
 
   const stopped = new Promise<void>((resolve, reject) => {
@@ -808,12 +833,16 @@ async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportPr
   try {
     recorder.start(500);
     raf = requestAnimationFrame(paint);
-    progressTimer = setInterval(() => onProgress?.(Math.min(0.99, video.currentTime / duration)), 150);
-    await video.play();
-    await new Promise<void>((resolve, reject) => {
+    progressTimer = setInterval(() => {
+      onProgress?.(Math.min(0.99, Math.max(0, (video.currentTime - trimStart) / trimmedDuration)));
+    }, 150);
+    const playbackFinished = new Promise<void>((resolve, reject) => {
+      finishPlayback = resolve;
       video.addEventListener('ended', () => resolve(), { once: true });
       video.addEventListener('error', () => reject(new Error('Falha ao reproduzir o vídeo durante a exportação.')), { once: true });
     });
+    await video.play();
+    await playbackFinished;
     drawScene(ctx, fields, assets, video);
     recorder.stop();
     await stopped;
@@ -840,14 +869,30 @@ async function buildMp4(fields: SmPostFields, src: string, onProgress?: ExportPr
 
 const SmPostCanvas = forwardRef<
   SmPostCanvasHandle,
-  { fields: SmPostFields; onError: (message: string) => void }
->(function SmPostCanvas({ fields, onError }, ref) {
+  {
+    fields: SmPostFields;
+    onError: (message: string) => void;
+    onVideoStateChange?: (state: VideoPreviewState) => void;
+  }
+>(function SmPostCanvas({ fields, onError, onVideoStateChange }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fieldsRef = useRef(fields);
   const mediaRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null);
   const assetsRef = useRef<PreparedAssets | null>(null);
   const rafRef = useRef(0);
+  const lastVideoStateAtRef = useRef(0);
   fieldsRef.current = fields;
+
+  const emitVideoState = (video: HTMLVideoElement, force = false) => {
+    const now = performance.now();
+    if (!force && now - lastVideoStateAtRef.current < 100) return;
+    lastVideoStateAtRef.current = now;
+    onVideoStateChange?.({
+      duration: Number.isFinite(video.duration) ? video.duration : 0,
+      currentTime: Number.isFinite(video.currentTime) ? video.currentTime : 0,
+      isPlaying: !video.paused && !video.ended,
+    });
+  };
 
   const paintVisible = () => {
     const canvas = canvasRef.current;
@@ -889,6 +934,7 @@ const SmPostCanvas = forwardRef<
 
     const start = async () => {
       if (!fields.imageUrl || !fields.mediaType) {
+        onVideoStateChange?.({ duration: 0, currentTime: 0, isPlaying: false });
         paintVisible();
         return;
       }
@@ -902,17 +948,29 @@ const SmPostCanvas = forwardRef<
           return;
         }
 
-        const video = createVideo(fields.imageUrl, true);
+        const video = createVideo(fields.imageUrl, false);
         await waitForVideo(video);
         if (cancelled) return;
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        const startAt = Math.max(0, Math.min(fieldsRef.current.videoTrimStart, duration));
+        await waitForSeek(video, startAt);
+        if (cancelled) return;
         mediaRef.current = video;
+        emitVideoState(video, true);
         const tick = () => {
           if (cancelled) return;
+          const currentFields = fieldsRef.current;
+          const trimEnd = Math.min(currentFields.videoTrimEnd ?? duration, duration);
+          if (!video.paused && video.currentTime >= trimEnd) {
+            video.pause();
+            video.currentTime = trimEnd;
+            emitVideoState(video, true);
+          }
           paintVisible();
+          emitVideoState(video);
           rafRef.current = requestAnimationFrame(tick);
         };
         tick();
-        video.play().catch(() => {});
         onError('');
       } catch (error) {
         if (!cancelled) onError(error instanceof Error ? error.message : 'Não foi possível carregar a mídia.');
@@ -931,7 +989,21 @@ const SmPostCanvas = forwardRef<
       }
       mediaRef.current = null;
     };
-  }, [fields.imageUrl, fields.mediaType, onError]);
+  }, [fields.imageUrl, fields.mediaType, onError, onVideoStateChange]);
+
+  useEffect(() => {
+    const current = mediaRef.current;
+    if (!(current instanceof HTMLVideoElement)) return;
+    const duration = Number.isFinite(current.duration) ? current.duration : 0;
+    if (!duration) return;
+    const trimStart = Math.max(0, Math.min(fields.videoTrimStart, duration));
+    const trimEnd = Math.min(fields.videoTrimEnd ?? duration, duration);
+    if (current.currentTime < trimStart || current.currentTime > trimEnd) {
+      current.currentTime = trimStart;
+      paintVisible();
+      emitVideoState(current, true);
+    }
+  }, [fields.videoTrimStart, fields.videoTrimEnd]);
 
   useImperativeHandle(ref, () => ({
     exportPng: async () => {
@@ -951,6 +1023,32 @@ const SmPostCanvas = forwardRef<
       const current = fieldsRef.current;
       if (current.mediaType !== 'video' || !current.imageUrl) throw new Error('Envie um vídeo para exportar em MP4.');
       return buildMp4(current, current.imageUrl, onProgress);
+    },
+    togglePlayback: () => {
+      const video = mediaRef.current;
+      if (!(video instanceof HTMLVideoElement)) return;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      const start = Math.max(0, Math.min(fieldsRef.current.videoTrimStart, duration));
+      const end = Math.min(fieldsRef.current.videoTrimEnd ?? duration, duration);
+      if (video.paused) {
+        if (video.currentTime < start || video.currentTime >= end - 0.01) video.currentTime = start;
+        video.play()
+          .then(() => emitVideoState(video, true))
+          .catch(() => onError('Não foi possível reproduzir este vídeo no navegador.'));
+      } else {
+        video.pause();
+        emitVideoState(video, true);
+      }
+    },
+    seekVideo: (time) => {
+      const video = mediaRef.current;
+      if (!(video instanceof HTMLVideoElement)) return;
+      const duration = Number.isFinite(video.duration) ? video.duration : 0;
+      const start = Math.max(0, Math.min(fieldsRef.current.videoTrimStart, duration));
+      const end = Math.min(fieldsRef.current.videoTrimEnd ?? duration, duration);
+      video.currentTime = Math.max(start, Math.min(time, end));
+      paintVisible();
+      emitVideoState(video, true);
     },
   }));
 
