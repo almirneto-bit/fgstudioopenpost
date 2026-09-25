@@ -543,7 +543,9 @@ async function createExportMedia(fields: SmPostFields) {
   if (fields.mediaType === 'image') return loadImage(fields.imageUrl);
   const video = createVideo(fields.imageUrl, false);
   await waitForVideo(video);
-  await waitForSeek(video, 0);
+  const duration = Number.isFinite(video.duration) ? video.duration : 0;
+  const trimStart = Math.max(0, Math.min(fields.videoTrimStart, duration));
+  await waitForSeek(video, trimStart);
   return video;
 }
 
