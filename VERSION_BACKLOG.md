@@ -11,6 +11,39 @@ Sempre que uma mudança funcional for enviada para a `main`:
 3. registrar aqui a data, o objetivo, os principais ajustes e o commit funcional;
 4. validar o build automático antes de considerar a versão estável.
 
+## v06 — 25/09/2026
+
+Commit principal: `0c1dc466360b47495d5d56a7ed4522043fac016e`
+
+Ajuste complementar: `46e136510da6efc69894fb4f7300be45c52cfeed`
+
+Branch de segurança: `backup/main-before-v06-2026-09-25`
+
+### Ajustes
+
+- Headline e body agora possuem uma área compacta de **Edições**.
+- CAPSLOCK, tamanho e entrelinha ficam agrupados dentro dessa área.
+- Tamanho de fonte voltou a ser controlado por slider.
+- Limite dos sliders definido entre 8 e 250 px.
+- Adicionado controle de entrelinha independente, de 0.5× a 2.0×.
+- Mantido o texto sem limite de caracteres.
+- Vídeos ganharam uma timeline simplificada abaixo do preview.
+- Adicionados play/pause, scrub de tempo e indicação de tempo atual/duração.
+- Adicionado recorte de início e fim do vídeo.
+- Preview pausa ao chegar no final do recorte.
+- GIF exporta somente o trecho selecionado.
+- MP4 exporta somente o trecho selecionado.
+- Quando **Manter áudio no MP4** está ativo, o recorte usa a mesma janela temporal para vídeo e áudio.
+- PNG estático de vídeo usado no ZIP passa a utilizar o primeiro frame do recorte.
+- Interface identificada como v06.
+
+### Arquivos principais alterados
+
+- `components/post/SmPostEditor.tsx`
+- `components/post/SmPostCanvas.tsx`
+- `lib/smPostTemplate.ts`
+- `app/globals.css`
+
 ## v05 — 25/09/2026
 
 Commit funcional: `8a316267759ccd55a30455e4c899034a4c5aad35`
