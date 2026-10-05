@@ -11,6 +11,36 @@ Sempre que uma mudança funcional for enviada para a `main`:
 3. registrar aqui a data, o objetivo, os principais ajustes e o commit funcional;
 4. validar o build automático antes de considerar a versão estável.
 
+## v07 — 05/10/2026
+
+Commit funcional principal: `60bdbe33a2b154aedb6a1dcd1b78c6d087985b90`
+
+Branch de segurança: `backup/main-before-v07-supabase-history-2026-10-05`
+
+### Ajustes
+
+- Adicionada integração do histórico de projetos com Supabase.
+- Criado client browser em `lib/supabase/client.ts`.
+- Criada camada de persistência em nuvem em `lib/smPostCloudStorage.ts`.
+- Histórico passa a priorizar o Supabase e usar IndexedDB como fallback local.
+- Autosave grava na nuvem quando disponível e preserva salvamento local.
+- Abertura de projetos tenta buscar no Supabase e recorre ao IndexedDB em caso de falha.
+- Histórico online deixa de depender do limite local de cinco projetos.
+- Variáveis `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` configuradas no Vercel.
+- Upload de mídia permanece no modelo atual nesta fase; migração para Supabase Storage fica para uma etapa posterior.
+- Interface identificada como v07.
+
+### Pré-requisito no Supabase
+
+A tabela `public.fg_projects` precisa existir com RLS/policies compatíveis com a estratégia atual de histórico compartilhado.
+
+### Arquivos principais alterados
+
+- `package.json`
+- `lib/supabase/client.ts`
+- `lib/smPostCloudStorage.ts`
+- `components/post/SmPostEditor.tsx`
+
 ## v06 — 25/09/2026
 
 Commit principal: `0c1dc466360b47495d5d56a7ed4522043fac016e`
