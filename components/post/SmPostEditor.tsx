@@ -23,6 +23,11 @@ import {
   saveProject,
   type SmPostProject,
 } from '@/lib/smPostStorage';
+import {
+  getCloudProject,
+  listCloudProjects,
+  saveCloudProject,
+} from '@/lib/smPostCloudStorage';
 
 type EditorTab = 'edit' | 'advanced';
 type ExportFormat = 'png' | 'gif' | 'mp4';
@@ -109,9 +114,24 @@ export default function SmPostEditor() {
     let cancelled = false;
     async function restore() {
       try {
-        const recent = await listProjects();
+        let recent: SmPostProject[];
+        try {
+          recent = await listCloudProjects();
+        } catch {
+          recent = await listProjects();
+        }
+
         const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
-        const active = activeId ? await getProject(activeId) : null;
+        let active: SmPostProject | null = null;
+
+        if (activeId) {
+          try {
+            active = await getCloudProject(activeId);
+          } catch {
+            active = await getProject(activeId);
+          }
+        }
+
         const nextProject = normalizeProject(active ?? recent[0] ?? createProject());
         if (!cancelled) {
           setProject(nextProject);
@@ -136,7 +156,21 @@ export default function SmPostEditor() {
     setSaveState('saving');
     const timeout = window.setTimeout(async () => {
       try {
-        const recent = await saveProject(project);
+        try {
+          await saveCloudProject(project);
+        } catch {
+          // O IndexedDB continua sendo o fallback local quando a nuvem não está disponível.
+        }
+
+        const recentLocal = await saveProject(project);
+        let recent = recentLocal;
+
+        try {
+          recent = await listCloudProjects();
+        } catch {
+          // Mantém o histórico local se o Supabase estiver indisponível.
+        }
+
         localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
         setHistory(recent.map(normalizeProject));
         setSaveState('saved');
@@ -290,7 +324,18 @@ export default function SmPostEditor() {
   const newProject = async () => {
     if (!project) return;
     try {
-      const recent = await saveProject(project);
+      try {
+        await saveCloudProject(project);
+      } catch {
+        // O salvamento local abaixo garante que a criação não seja perdida.
+      }
+      const recentLocal = await saveProject(project);
+      let recent = recentLocal;
+      try {
+        recent = await listCloudProjects();
+      } catch {
+        // Usa histórico local quando a nuvem estiver indisponível.
+      }
       const next = createProject();
       setHistory(recent.map(normalizeProject));
       setProject(next);
@@ -306,8 +351,19 @@ export default function SmPostEditor() {
   const openProject = async (projectId: string) => {
     if (!project || projectId === project.id) return;
     try {
+      try {
+        await saveCloudProject(project);
+      } catch {
+        // O projeto atual também será preservado localmente abaixo.
+      }
       await saveProject(project);
-      const saved = await getProject(projectId);
+
+      let saved: SmPostProject | null = null;
+      try {
+        saved = await getCloudProject(projectId);
+      } catch {
+        saved = await getProject(projectId);
+      }
       if (!saved) return;
       const next = normalizeProject(saved);
       setProject(next);
@@ -401,7 +457,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v06</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v07</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -729,7 +785,7 @@ export default function SmPostEditor() {
 
         {error && <p role="alert" className="sm-post-error">{error}</p>}
         <p className="sm-post-hint">
-          O histórico mantém automaticamente as cinco criações mais recentes neste navegador.
+          O histórico usa o Supabase quando disponível e mantém as cinco criações mais recentes neste navegador como fallback local.
           {project.slides.some((slide) => slide.fields.mediaType === 'video') && ' No ZIP do carrossel, vídeos usam o primeiro frame em PNG.'}
         </p>
       </section>
