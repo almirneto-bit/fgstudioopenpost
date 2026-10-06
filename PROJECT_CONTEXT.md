@@ -459,3 +459,29 @@ Nos templates standard, `tagHeadlineOffset` funciona como deslocamento vertical 
 - um editor de texto é posicionado sobre a área correspondente;
 - alterações usam os mesmos campos do painel lateral;
 - exportação continua usando apenas o canvas final, sem incluir a UI de edição.
+
+
+## 14. Atualização v08-beta.1 — Engine de textGroup
+
+Novos campos em `SmPostFields`:
+- `textGroupOffsetX`
+- `textGroupOffsetY`
+- `headlineWidth`
+- `bodyWidth`
+
+Esses campos têm fallback automático ao carregar projetos anteriores.
+
+### Preservação de alinhamento
+Quando a largura muda, a engine mantém o eixo do template:
+- left: x original permanece;
+- center: largura expande/contrai a partir do centro;
+- right: borda direita permanece ancorada.
+
+### Perfis por template
+`lib/autoLayout.ts` contém perfis próprios para Classic, Kanit L/R/C, Vina L/R e Posts 7/8/9. O perfil limita deslocamento do grupo, larguras e legibilidade antes da mudança ser aplicada.
+
+### Auto Layout
+O backend `api/auto-layout-v2.ts` agora expõe os novos controles ao modelo e se identifica como:
+`v4-template-profiles-2026-10-06`.
+
+A IA deve preferir `textGroupOffsetX/Y` quando a composição inteira de texto precisar se mover e usar `headlineWidth/bodyWidth` para controlar comprimento de linha sem quebrar alinhamento.
