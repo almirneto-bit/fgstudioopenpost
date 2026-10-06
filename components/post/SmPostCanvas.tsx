@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState, type MouseEvent } from 'react';
 import {
   FG_LOGO_COLORS,
   POST_HEIGHT,
@@ -1114,7 +1114,7 @@ const SmPostCanvas = forwardRef<
         ? fields.tag
         : '';
 
-  const handleCanvasDoubleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasDoubleClick = (event: MouseEvent<HTMLCanvasElement>) => {
     if (!editable || !onTextChange) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - rect.left) / rect.width) * POST_WIDTH;
