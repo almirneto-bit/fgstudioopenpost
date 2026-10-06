@@ -426,3 +426,36 @@ Regra de segurança:
 Escopo atual:
 - o Auto Layout não altera textos, cores, logos, assets nem o template.
 - a primeira versão trabalha somente com propriedades que já existiam no editor, para validar a utilidade da IA sem reestruturar o canvas.
+
+
+## 13. Atualização v08-beta — Direção de layout e edição direta
+
+### Auto Layout
+O Auto Layout passa a seguir um modelo híbrido:
+1. IA multimodal sugere mudanças;
+2. regras determinísticas validam legibilidade e proximidade;
+3. o usuário escolhe Aplicar ou Descartar.
+
+Modos disponíveis:
+- `balanced`: menor número de mudanças para equilíbrio geral;
+- `readability`: prioriza body legível e proximidade headline/body;
+- `headline`: preserva headline dominante sem sacrificar o body.
+
+Princípios enviados ao modelo:
+- proximidade;
+- hierarquia;
+- alinhamento;
+- safe area;
+- espaço negativo.
+
+Nos templates standard, `tagHeadlineOffset` funciona como deslocamento vertical do grupo e `headlineBodyOffset` como controle de proximidade entre headline e body.
+
+### UX de mídia
+`imageOffsetX` e `imageOffsetY` são controlados por sliders de -800px a +800px, com opção de reset para o centro.
+
+### Edição direta no canvas
+`SmPostCanvas` aceita edição inline quando `editable=true`.
+- duplo clique identifica headline, body e tag/handle por hit-test;
+- um editor de texto é posicionado sobre a área correspondente;
+- alterações usam os mesmos campos do painel lateral;
+- exportação continua usando apenas o canvas final, sem incluir a UI de edição.
