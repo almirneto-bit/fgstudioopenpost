@@ -32,6 +32,7 @@ import {
 type EditorTab = 'edit' | 'advanced';
 type ExportFormat = 'png' | 'gif' | 'mp4';
 type VideoPreviewState = { duration: number; currentTime: number; isPlaying: boolean };
+type CloudSaveState = 'not_saved' | 'saved' | 'dirty' | 'saving' | 'error';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
@@ -96,6 +97,15 @@ function safeFilename(value: string) {
     .toLowerCase() || 'carrossel';
 }
 
+function formatHistoryDate(timestamp: number) {
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(timestamp);
+}
+
 export default function SmPostEditor() {
   const [project, setProject] = useState<SmPostProject | null>(null);
   const [history, setHistory] = useState<SmPostProject[]>([]);
@@ -107,6 +117,7 @@ export default function SmPostEditor() {
   const [exportProgress, setExportProgress] = useState(0);
   const [videoPreview, setVideoPreview] = useState<VideoPreviewState>(EMPTY_VIDEO_PREVIEW);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
+  const [cloudSaveState, setCloudSaveState] = useState<CloudSaveState>('not_saved');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -114,28 +125,27 @@ export default function SmPostEditor() {
     let cancelled = false;
     async function restore() {
       try {
-        let recent: SmPostProject[];
+        const localRecent = await listProjects();
+        let cloudRecent: SmPostProject[] = [];
         try {
-          recent = await listCloudProjects();
+          cloudRecent = await listCloudProjects();
         } catch {
-          recent = await listProjects();
+          // O editor continua disponível com o autosave local mesmo sem conexão com a nuvem.
         }
 
         const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
-        let active: SmPostProject | null = null;
+        const localActive = activeId ? await getProject(activeId) : null;
+        const nextProject = normalizeProject(localActive ?? cloudRecent[0] ?? localRecent[0] ?? createProject());
+        const cloudVersion = cloudRecent.find((saved) => saved.id === nextProject.id);
 
-        if (activeId) {
-          try {
-            active = await getCloudProject(activeId);
-          } catch {
-            active = await getProject(activeId);
-          }
-        }
-
-        const nextProject = normalizeProject(active ?? recent[0] ?? createProject());
         if (!cancelled) {
           setProject(nextProject);
-          setHistory(recent.map(normalizeProject));
+          setHistory(cloudRecent.map(normalizeProject));
+          setCloudSaveState(
+            cloudVersion
+              ? (nextProject.updatedAt > cloudVersion.updatedAt ? 'dirty' : 'saved')
+              : 'not_saved',
+          );
           localStorage.setItem(ACTIVE_PROJECT_KEY, nextProject.id);
           setSaveState('saved');
         }
@@ -156,23 +166,8 @@ export default function SmPostEditor() {
     setSaveState('saving');
     const timeout = window.setTimeout(async () => {
       try {
-        try {
-          await saveCloudProject(project);
-        } catch {
-          // O IndexedDB continua sendo o fallback local quando a nuvem não está disponível.
-        }
-
-        const recentLocal = await saveProject(project);
-        let recent = recentLocal;
-
-        try {
-          recent = await listCloudProjects();
-        } catch {
-          // Mantém o histórico local se o Supabase estiver indisponível.
-        }
-
+        await saveProject(project);
         localStorage.setItem(ACTIVE_PROJECT_KEY, project.id);
-        setHistory(recent.map(normalizeProject));
         setSaveState('saved');
       } catch {
         setSaveState('error');
@@ -202,6 +197,9 @@ export default function SmPostEditor() {
 
   const updateProject = (recipe: (current: SmPostProject) => SmPostProject) => {
     setProject((current) => current ? { ...recipe(current), updatedAt: Date.now() } : current);
+    setCloudSaveState((current) => (
+      current === 'saved' || current === 'dirty' || current === 'error' ? 'dirty' : current
+    ));
   };
 
   const setField = <K extends keyof SmPostFields>(key: K, value: SmPostFields[K]) => {
@@ -324,21 +322,10 @@ export default function SmPostEditor() {
   const newProject = async () => {
     if (!project) return;
     try {
-      try {
-        await saveCloudProject(project);
-      } catch {
-        // O salvamento local abaixo garante que a criação não seja perdida.
-      }
-      const recentLocal = await saveProject(project);
-      let recent = recentLocal;
-      try {
-        recent = await listCloudProjects();
-      } catch {
-        // Usa histórico local quando a nuvem estiver indisponível.
-      }
+      await saveProject(project);
       const next = createProject();
-      setHistory(recent.map(normalizeProject));
       setProject(next);
+      setCloudSaveState('not_saved');
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
       setActiveTab('edit');
       setExportFormat('png');
@@ -348,30 +335,36 @@ export default function SmPostEditor() {
     }
   };
 
+  const saveToHistory = async () => {
+    if (!project || cloudSaveState === 'saving') return;
+    setCloudSaveState('saving');
+    try {
+      await saveCloudProject(project);
+      const recent = await listCloudProjects();
+      setHistory(recent.map(normalizeProject));
+      setCloudSaveState('saved');
+      setError('');
+    } catch {
+      setCloudSaveState('error');
+      setError('Não foi possível salvar esta criação no histórico online. O autosave local continua ativo.');
+    }
+  };
+
   const openProject = async (projectId: string) => {
     if (!project || projectId === project.id) return;
     try {
-      try {
-        await saveCloudProject(project);
-      } catch {
-        // O projeto atual também será preservado localmente abaixo.
-      }
       await saveProject(project);
-
-      let saved: SmPostProject | null = null;
-      try {
-        saved = await getCloudProject(projectId);
-      } catch {
-        saved = await getProject(projectId);
-      }
+      const saved = await getCloudProject(projectId);
       if (!saved) return;
       const next = normalizeProject(saved);
+      await saveProject(next);
       setProject(next);
+      setCloudSaveState('saved');
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
       setExportFormat('png');
       setError('');
     } catch {
-      setError('Não foi possível abrir essa criação.');
+      setError('Não foi possível abrir essa criação do histórico.');
     }
   };
 
@@ -457,7 +450,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v07</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v07.1</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -495,6 +488,39 @@ export default function SmPostEditor() {
           aria-label="Nome da criação"
           onChange={(event) => updateProject((current) => ({ ...current, name: event.target.value }))}
         />
+        <button
+          type="button"
+          className={`sm-post-cloud-save is-${cloudSaveState}`}
+          onClick={saveToHistory}
+          disabled={cloudSaveState === 'saving'}
+          title={cloudSaveState === 'not_saved' ? 'Salvar criação no histórico' : 'Salvar alterações no histórico'}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 3h12l2 2v16H5V3Zm2 2v5h9V5H7Zm0 14h10v-6H7v6Zm2-12h5v1H9V7Z" fill="currentColor" />
+          </svg>
+          <span>
+            {cloudSaveState === 'saving'
+              ? 'Salvando no histórico...'
+              : cloudSaveState === 'saved'
+                ? 'Salvo no histórico'
+                : cloudSaveState === 'dirty'
+                  ? 'Salvar alterações'
+                  : cloudSaveState === 'error'
+                    ? 'Tentar salvar novamente'
+                    : 'Salvar no histórico'}
+          </span>
+        </button>
+        <small className={`sm-post-cloud-status is-${cloudSaveState}`}>
+          {cloudSaveState === 'saved'
+            ? 'Esta versão está salva online.'
+            : cloudSaveState === 'dirty'
+              ? 'Há alterações ainda não salvas no histórico.'
+              : cloudSaveState === 'error'
+                ? 'Falha ao salvar online. Seu rascunho continua salvo localmente.'
+                : cloudSaveState === 'saving'
+                  ? 'Enviando esta versão para o Supabase.'
+                  : 'Rascunho local. Salve quando quiser adicionar ao histórico.'}
+        </small>
 
         <div className="sm-post-rail-section">
           <div className="sm-post-section-head"><span>Lâminas</span><small>{project.slides.length}</small></div>
@@ -539,7 +565,7 @@ export default function SmPostEditor() {
         </div>
 
         <div className="sm-post-rail-section">
-          <div className="sm-post-section-head"><span>Últimas criações</span><small>5</small></div>
+          <div className="sm-post-section-head"><span>Histórico</span><small>{history.length}</small></div>
           <div className="sm-post-history-list">
             {history.length === 0 && <p className="sm-post-hint">As criações salvas aparecerão aqui.</p>}
             {history.map((saved) => (
@@ -550,7 +576,9 @@ export default function SmPostEditor() {
                 onClick={() => openProject(saved.id)}
               >
                 <span>{saved.name}</span>
-                <small>{saved.slides.length} {saved.slides.length === 1 ? 'lâmina' : 'lâminas'}</small>
+                <small>
+                  {saved.slides.length} {saved.slides.length === 1 ? 'lâmina' : 'lâminas'} · editado em {formatHistoryDate(saved.updatedAt)}
+                </small>
               </button>
             ))}
           </div>
@@ -785,7 +813,7 @@ export default function SmPostEditor() {
 
         {error && <p role="alert" className="sm-post-error">{error}</p>}
         <p className="sm-post-hint">
-          O histórico usa o Supabase quando disponível e mantém as cinco criações mais recentes neste navegador como fallback local.
+          O editor salva automaticamente um rascunho local. Use “Salvar no histórico” para enviar ou atualizar uma criação no Supabase.
           {project.slides.some((slide) => slide.fields.mediaType === 'video') && ' No ZIP do carrossel, vídeos usam o primeiro frame em PNG.'}
         </p>
       </section>
