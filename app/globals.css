@@ -22,6 +22,14 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .sm-post-rail-head small{font-size:10px;color:var(--fg-muted)}
 .sm-post-icon-btn{padding:6px 9px;font-size:11px}
 .sm-post-project-name{width:100%;background:var(--card-inset);border:1px solid var(--line);padding:8px;color:var(--fg-body);border-radius:var(--r-ctrl)}
+.sm-post-cloud-save{width:100%;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;border:1px solid var(--line);background:var(--inverse-bg);color:var(--inverse-fg);padding:9px 10px;border-radius:var(--r-ctrl);font-weight:600}
+.sm-post-cloud-save svg{width:14px;height:14px;flex:0 0 auto}
+.sm-post-cloud-save.is-saved{background:var(--card-inset);color:var(--fg-body)}
+.sm-post-cloud-save.is-dirty{background:var(--inverse-bg);color:var(--inverse-fg)}
+.sm-post-cloud-save.is-error{background:var(--card-inset);color:var(--fg-body);border-style:dashed}
+.sm-post-cloud-status{display:block;margin-top:6px;font-size:9px;line-height:1.35;color:var(--fg-muted)}
+.sm-post-cloud-status.is-dirty{color:var(--fg-body)}
+.sm-post-cloud-status.is-error{color:var(--fg-body)}
 .sm-post-rail-section{padding:18px 0;border-top:1px solid var(--line);margin-top:18px}
 .sm-post-section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:600;margin-bottom:12px}
 .sm-post-section-head small{font-size:10px;color:var(--fg-muted)}
