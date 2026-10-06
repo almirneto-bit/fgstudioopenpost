@@ -481,7 +481,7 @@ export default function SmPostEditor() {
       setAutoLayoutChanges(changes);
       setAutoLayoutSummary(payload.summary || 'Sugestão de Auto Layout pronta.');
       setAutoLayoutDetail([payload.usage?.total_tokens ? `${payload.usage.total_tokens} tokens usados` : 'Resposta da IA recebida', payload.meta?.model ? `modelo ${payload.meta.model}` : '', payload.meta?.backendVersion || payload.backendVersion ? `backend ${payload.meta?.backendVersion ?? payload.backendVersion}` : ''].filter(Boolean).join(' · '));
-      setAutoLayoutPreviewFields(applyAutoLayoutChanges(fields, changes));
+      setAutoLayoutPreviewFields(applyAutoLayoutChanges(fields, changes, autoLayoutMode));
       setAutoLayoutState('preview');
     } catch (autoLayoutError) {
       const message = autoLayoutError instanceof Error ? autoLayoutError.message : 'Falha ao gerar Auto Layout.';
@@ -1052,6 +1052,7 @@ export default function SmPostEditor() {
             />
           )}
         </div>
+        <div className="sm-post-canvas-edit-hint">Duplo clique em um texto para editar direto na arte.</div>
 
         {fields.mediaType === 'video' && fields.imageUrl && (
           <div className="sm-post-video-timeline">
