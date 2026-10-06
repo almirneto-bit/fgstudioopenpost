@@ -344,9 +344,10 @@ export default function SmPostEditor() {
       setHistory(recent.map(normalizeProject));
       setCloudSaveState('saved');
       setError('');
-    } catch {
+    } catch (cloudError) {
       setCloudSaveState('error');
-      setError('Não foi possível salvar esta criação no histórico online. O autosave local continua ativo.');
+      const detail = cloudError instanceof Error ? cloudError.message : String(cloudError);
+      setError(`Não foi possível salvar esta criação no histórico online. ${detail ? `Supabase: ${detail}` : ''} O autosave local continua ativo.`);
     }
   };
 
