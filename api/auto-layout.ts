@@ -1,4 +1,47 @@
-import { sanitizeAutoLayoutChanges } from '../lib/autoLayout';
+type AutoLayoutProperty =
+  | 'headlineFontSize'
+  | 'headlineLineHeight'
+  | 'bodyFontSize'
+  | 'bodyLineHeight'
+  | 'tagHeadlineOffset'
+  | 'headlineBodyOffset'
+  | 'imageScale'
+  | 'imageOffsetX'
+  | 'imageOffsetY';
+
+const LIMITS: Record<AutoLayoutProperty, { min: number; max: number }> = {
+  headlineFontSize: { min: 8, max: 250 },
+  headlineLineHeight: { min: 0.5, max: 2 },
+  bodyFontSize: { min: 8, max: 250 },
+  bodyLineHeight: { min: 0.5, max: 2 },
+  tagHeadlineOffset: { min: -180, max: 180 },
+  headlineBodyOffset: { min: -180, max: 180 },
+  imageScale: { min: 1, max: 2.5 },
+  imageOffsetX: { min: -800, max: 800 },
+  imageOffsetY: { min: -800, max: 800 },
+};
+
+function sanitizeAutoLayoutChanges(input: unknown) {
+  if (!Array.isArray(input)) return [];
+  const allowed = new Set(Object.keys(LIMITS));
+  const seen = new Set<string>();
+
+  return input.flatMap((item) => {
+    if (!item || typeof item !== 'object') return [];
+    const candidate = item as { property?: unknown; value?: unknown; reason?: unknown };
+    if (typeof candidate.property !== 'string' || !allowed.has(candidate.property) || seen.has(candidate.property)) return [];
+    const property = candidate.property as AutoLayoutProperty;
+    const value = Number(candidate.value);
+    if (!Number.isFinite(value)) return [];
+    const limit = LIMITS[property];
+    seen.add(property);
+    return [{
+      property,
+      value: Math.min(limit.max, Math.max(limit.min, value)),
+      ...(typeof candidate.reason === 'string' ? { reason: candidate.reason.trim().slice(0, 180) } : {}),
+    }];
+  }).slice(0, 9);
+}
 
 type AutoLayoutRequest = {
   state?: unknown;
