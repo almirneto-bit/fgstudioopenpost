@@ -485,3 +485,27 @@ O backend `api/auto-layout-v2.ts` agora expõe os novos controles ao modelo e se
 `v4-template-profiles-2026-10-06`.
 
 A IA deve preferir `textGroupOffsetX/Y` quando a composição inteira de texto precisar se mover e usar `headlineWidth/bodyWidth` para controlar comprimento de linha sem quebrar alinhamento.
+
+
+## 15. Atualização v08-beta.2 — Fluxo simplificado
+
+### Auto Layout
+O Auto Layout agora é exclusivamente orientado a legibilidade. Não existe seleção de modo na interface.
+
+O backend usa `v5-readability-only-2026-10-06` e pode sugerir apenas propriedades já existentes no template:
+- tamanhos e entrelinhas;
+- offsets verticais entre textos;
+- escala e posição da mídia.
+
+### Edição direta no canvas
+A edição inline não usa mais o textarea visual anterior. Um clique em um elemento textual abre uma camada contentEditable posicionada sobre o próprio texto. Durante a edição, o texto equivalente deixa de ser desenhado no canvas, evitando sobreposição.
+
+### Layouts
+Os IDs permanecem os mesmos para compatibilidade, mas a nomenclatura de interface passa a ser organizada por famílias:
+- Base;
+- Kanit;
+- Vina;
+- Especiais.
+
+### Noise
+Novas criações usam intensidade 30 e grão 1 como padrão.
