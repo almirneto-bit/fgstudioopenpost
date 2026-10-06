@@ -474,7 +474,9 @@ function drawScene(
 
   const headlineBox = {
     ...layout.headline,
-    y: layout.headline.y + fields.tagHeadlineOffset,
+    x: layout.headline.x + fields.textGroupOffsetX,
+    y: layout.headline.y + fields.tagHeadlineOffset + fields.textGroupOffsetY,
+    width: fields.headlineWidth,
   };
   drawParagraph(ctx, textForDisplay(fields.headline, fields.headlineUppercase), headlineBox, {
     ...layout.headline,
@@ -487,7 +489,9 @@ function drawScene(
   if (layout.kind === 'standard' && fields.bodyText) {
     const bodyBox = {
       ...layout.bodyText,
-      y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset,
+      x: layout.bodyText.x + fields.textGroupOffsetX,
+      y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset + fields.textGroupOffsetY,
+      width: fields.bodyWidth,
     };
     drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), bodyBox, {
       ...layout.bodyText,
@@ -1075,13 +1079,22 @@ const SmPostCanvas = forwardRef<
   const layout = SM_POST_LAYOUTS[fields.layoutId] ?? SM_POST_LAYOUTS.classic;
   const headlineBox = {
     ...layout.headline,
-    y: layout.headline.y + fields.tagHeadlineOffset,
+    x: layout.headline.x + fields.textGroupOffsetX,
+    y: layout.headline.y + fields.tagHeadlineOffset + fields.textGroupOffsetY,
+    width: fields.headlineWidth,
   };
   const bodyBox = layout.kind === 'post9'
-    ? layout.bodyText
+    ? {
+        ...layout.bodyText,
+        x: layout.bodyText.x + fields.textGroupOffsetX,
+        y: layout.bodyText.y + fields.textGroupOffsetY,
+        width: fields.bodyWidth,
+      }
     : {
         ...layout.bodyText,
-        y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset,
+        x: layout.bodyText.x + fields.textGroupOffsetX,
+        y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset + fields.textGroupOffsetY,
+        width: fields.bodyWidth,
       };
   const handleBox = layout.kind === 'post9' ? layout.handle : undefined;
 
