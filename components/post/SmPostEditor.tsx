@@ -88,6 +88,10 @@ function normalizeProject(project: SmPostProject): SmPostProject {
         bodyFontSize: Math.min(250, Math.max(8, Number(slide.fields.bodyFontSize ?? defaults.bodyFontSize))),
         headlineLineHeight: Math.min(2, Math.max(0.5, Number(slide.fields.headlineLineHeight ?? defaults.headlineLineHeight))),
         bodyLineHeight: Math.min(2, Math.max(0.5, Number(slide.fields.bodyLineHeight ?? defaults.bodyLineHeight))),
+        textGroupOffsetX: Math.min(360, Math.max(-360, Number(slide.fields.textGroupOffsetX ?? defaults.textGroupOffsetX))),
+        textGroupOffsetY: Math.min(360, Math.max(-360, Number(slide.fields.textGroupOffsetY ?? defaults.textGroupOffsetY))),
+        headlineWidth: Math.min(980, Math.max(180, Number(slide.fields.headlineWidth ?? defaults.headlineWidth))),
+        bodyWidth: Math.min(980, Math.max(180, Number(slide.fields.bodyWidth ?? defaults.bodyWidth))),
         videoTrimStart: Math.max(0, Number(slide.fields.videoTrimStart ?? 0)),
         videoTrimEnd: slide.fields.videoTrimEnd == null ? null : Math.max(0, Number(slide.fields.videoTrimEnd)),
       },
@@ -309,6 +313,10 @@ export default function SmPostEditor() {
               bodyLineHeight: defaults.bodyLineHeight,
               layoutBackgroundColor: defaults.layoutBackgroundColor,
               tagHeadlineOffset: 0,
+              textGroupOffsetX: 0,
+              textGroupOffsetY: 0,
+              headlineWidth: defaults.headlineWidth,
+              bodyWidth: defaults.bodyWidth,
               headlineBodyOffset: 0,
             },
           }
@@ -1027,6 +1035,31 @@ export default function SmPostEditor() {
                 </label>
               </>
             )}
+
+            <div className="sm-post-hairline" />
+            <div className="sm-post-text-edits">
+              <div className="sm-post-text-edits-title">Grupo de texto</div>
+              <label className="sm-post-field sm-post-range-field is-compact">
+                <span>Posição horizontal <strong>{fields.textGroupOffsetX > 0 ? '+' : ''}{fields.textGroupOffsetX}px</strong></span>
+                <input type="range" min="-360" max="360" step="2" value={fields.textGroupOffsetX} onChange={(event) => setField('textGroupOffsetX', Number(event.target.value))} />
+              </label>
+              <label className="sm-post-field sm-post-range-field is-compact">
+                <span>Posição vertical <strong>{fields.textGroupOffsetY > 0 ? '+' : ''}{fields.textGroupOffsetY}px</strong></span>
+                <input type="range" min="-360" max="360" step="2" value={fields.textGroupOffsetY} onChange={(event) => setField('textGroupOffsetY', Number(event.target.value))} />
+              </label>
+              {showHeadline && (
+                <label className="sm-post-field sm-post-range-field is-compact">
+                  <span>Largura da headline <strong>{fields.headlineWidth}px</strong></span>
+                  <input type="range" min="180" max="980" step="4" value={fields.headlineWidth} onChange={(event) => setField('headlineWidth', Number(event.target.value))} />
+                </label>
+              )}
+              {showBody && (
+                <label className="sm-post-field sm-post-range-field is-compact">
+                  <span>Largura do body <strong>{fields.bodyWidth}px</strong></span>
+                  <input type="range" min="180" max="980" step="4" value={fields.bodyWidth} onChange={(event) => setField('bodyWidth', Number(event.target.value))} />
+                </label>
+              )}
+            </div>
 
             <div className="sm-post-hairline" />
             <label className="sm-post-toggle-field">
