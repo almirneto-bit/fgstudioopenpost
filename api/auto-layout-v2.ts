@@ -1,4 +1,4 @@
-const AUTO_LAYOUT_BACKEND_VERSION = 'v2-2026-10-06-1728';
+const AUTO_LAYOUT_BACKEND_VERSION = 'v2.1-function-call-2026-10-06';
 
 type AutoLayoutProperty =
   | 'headlineFontSize'
@@ -71,9 +71,9 @@ function promptFor(state: unknown) {
     'Não altere textos, cores, logos, assets ou o layout/template.',
     'Prefira poucas mudanças com impacto claro. Não mude uma propriedade se ela já estiver adequada.',
     'Respeite os limites informados em constraints.',
-    'Sua resposta deve ser APENAS JSON, sem markdown, neste formato:',
-    '{"summary":"explicação curta em português","changes":[{"property":"headlineFontSize","value":100,"reason":"motivo curto"}]}',
-    'Se não houver mudança útil, use changes: [].',
+    'Use obrigatoriamente a função apply_auto_layout para devolver a resposta.',
+    'Não responda em texto livre quando a função estiver disponível.',
+    'Se não houver mudança útil, chame apply_auto_layout com changes: [].',
     '',
     'ESTADO ATUAL:',
     JSON.stringify(state),
@@ -99,7 +99,52 @@ async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: strin
       },
       body: JSON.stringify({
         messages: [{ role: 'user', content }],
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'apply_auto_layout',
+              description: 'Return the approved Auto Layout changes for the current FG Studio composition.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  summary: {
+                    type: 'string',
+                    description: 'Short explanation in Portuguese of the layout improvements.',
+                  },
+                  changes: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        property: {
+                          type: 'string',
+                          enum: [
+                            'headlineFontSize',
+                            'headlineLineHeight',
+                            'bodyFontSize',
+                            'bodyLineHeight',
+                            'tagHeadlineOffset',
+                            'headlineBodyOffset',
+                            'imageScale',
+                            'imageOffsetX',
+                            'imageOffsetY',
+                          ],
+                        },
+                        value: { type: 'number' },
+                        reason: { type: 'string' },
+                      },
+                      required: ['property', 'value'],
+                    },
+                  },
+                },
+                required: ['summary', 'changes'],
+              },
+            },
+          },
+        ],
         stream: false,
+        include_thoughts: false,
         reasoning_effort: 'low',
       }),
     },
@@ -199,12 +244,28 @@ async function handleAutoLayout(request: Request) {
       }
     }
 
-    if (!modelContent) {
-      console.error('KIE_AUTO_LAYOUT_UNRECOGNIZED_RESPONSE', raw.slice(0, 2000));
-      throw new Error('A Kie respondeu, mas o conteúdo veio em um formato ainda não tratado.');
+    let parsed: { summary?: unknown; changes?: unknown } | null = null;
+
+    const candidateParts = payload.candidates?.[0]?.content?.parts ?? [];
+    const toolArgs = candidateParts.find(
+      (part) => part?.functionCall?.name === 'apply_auto_layout' && part?.functionCall?.args != null,
+    )?.functionCall?.args;
+
+    if (toolArgs && typeof toolArgs === 'object') {
+      parsed = toolArgs as { summary?: unknown; changes?: unknown };
+    } else if (modelContent) {
+      parsed = extractJson(modelContent);
     }
 
-    const parsed = extractJson(modelContent);
+    if (!parsed) {
+      console.error('KIE_AUTO_LAYOUT_UNRECOGNIZED_RESPONSE', raw.slice(0, 3000));
+      const topLevelKeys = payload && typeof payload === 'object' ? Object.keys(payload).join(', ') : 'none';
+      const partKeys = candidateParts.map((part) => Object.keys(part ?? {}).join('+')).join(', ');
+      throw new Error(
+        `A Kie respondeu sem texto nem function call reconhecível. Estrutura: [${topLevelKeys}] · parts: [${partKeys || 'none'}]`,
+      );
+    }
+
     const changes = sanitizeAutoLayoutChanges(parsed.changes);
 
     const usage = payload.usage
