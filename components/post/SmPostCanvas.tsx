@@ -1130,6 +1130,29 @@ const SmPostCanvas = forwardRef<
         ? textForDisplay(fields.tag, fields.tagUppercase)
         : '';
 
+  const editorFontSize = editingField === 'headline'
+    ? fields.headlineFontSize
+    : editingField === 'bodyText'
+      ? fields.bodyFontSize
+      : editableBox?.fontSize ?? 24;
+  const editorLineHeight = editingField === 'headline'
+    ? fields.headlineLineHeight
+    : editingField === 'bodyText'
+      ? fields.bodyLineHeight
+      : editableBox?.lineHeight ?? 1;
+  const editorGeometry = (() => {
+    if (!editableBox) return null;
+    const ctx = canvasRef.current?.getContext('2d');
+    if (!ctx) return { top: editableBox.y, height: editableBox.height };
+    ctx.font = `${editableBox.fontWeight} ${editorFontSize}px ${editableBox.fontFamily}`;
+    const lines = wrapLines(ctx, editableValue, editableBox.width, editableBox.letterSpacing);
+    const totalHeight = Math.max(editorFontSize * editorLineHeight, lines.length * editorFontSize * editorLineHeight);
+    return {
+      top: editableBox.y + Math.max(0, (editableBox.height - totalHeight) / 2),
+      height: Math.max(totalHeight, editorFontSize * editorLineHeight),
+    };
+  })();
+
   const handleCanvasClick = (event: MouseEvent<HTMLCanvasElement>) => {
     if (!editable || !onTextChange) return;
     const rect = event.currentTarget.getBoundingClientRect();
@@ -1192,19 +1215,11 @@ const SmPostCanvas = forwardRef<
           }}
           style={{
             left: `${editableBox.x * canvasScale}px`,
-            top: `${editableBox.y * canvasScale}px`,
+            top: `${(editorGeometry?.top ?? editableBox.y) * canvasScale}px`,
             width: `${editableBox.width * canvasScale}px`,
-            minHeight: `${Math.max(editableBox.height, 56) * canvasScale}px`,
-            fontSize: `${(editingField === 'headline'
-              ? fields.headlineFontSize
-              : editingField === 'bodyText'
-                ? fields.bodyFontSize
-                : editableBox.fontSize) * canvasScale}px`,
-            lineHeight: editingField === 'headline'
-              ? fields.headlineLineHeight
-              : editingField === 'bodyText'
-                ? fields.bodyLineHeight
-                : editableBox.lineHeight,
+            minHeight: `${Math.max(editorGeometry?.height ?? editableBox.height, 28) * canvasScale}px`,
+            fontSize: `${editorFontSize * canvasScale}px`,
+            lineHeight: editorLineHeight,
             fontFamily: editableBox.fontFamily,
             fontWeight: editableBox.fontWeight,
             textAlign: editableBox.align,
