@@ -162,3 +162,20 @@ Commit de referência: `8d118a1f485249ebd1e3b164695ea064a8a515d7`
 Commit: `fd75e2a3a79816fa0baa2177d6cafe55176a9173`
 
 Foi criado o `PROJECT_CONTEXT.md` como fonte oficial de contexto e checklist anti-regressão do projeto.
+
+
+## v08-alpha — Auto Layout com Kie.ai (2026-10-06)
+
+- Adicionado botão **Auto Layout** no painel de edição.
+- A IA analisa o estado estruturado da lâmina e, quando disponível, uma captura visual reduzida do canvas.
+- Integração preparada para Kie.ai usando Gemini 3.8 Flash pela função segura `/api/auto-layout`.
+- A chave `KIE_API_KEY` fica somente no servidor/Vercel e nunca é enviada ao navegador.
+- Nesta primeira versão, a IA pode sugerir apenas propriedades já suportadas pelo editor:
+  - tamanho e entrelinha de headline;
+  - tamanho e entrelinha de body;
+  - espaçamentos verticais entre blocos;
+  - zoom e posição da mídia.
+- Sugestões passam por validação e limites antes de chegar ao canvas.
+- Alterações entram primeiro em modo de prévia com **Aplicar** ou **Descartar**.
+- A prévia não altera o projeto nem dispara salvamento no histórico até o usuário confirmar.
+- Branch de segurança: `backup/main-before-auto-layout-v01-2026-10-06`.
