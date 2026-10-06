@@ -1,6 +1,6 @@
 'use client';
 
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import {
   FG_LOGO_COLORS,
   POST_HEIGHT,
@@ -875,15 +875,33 @@ const SmPostCanvas = forwardRef<
     fields: SmPostFields;
     onError: (message: string) => void;
     onVideoStateChange?: (state: VideoPreviewState) => void;
+    editable?: boolean;
+    onTextChange?: (field: 'tag' | 'headline' | 'bodyText', value: string) => void;
   }
->(function SmPostCanvas({ fields, onError, onVideoStateChange }, ref) {
+>(function SmPostCanvas({ fields, onError, onVideoStateChange, editable = false, onTextChange }, ref) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fieldsRef = useRef(fields);
   const mediaRef = useRef<HTMLImageElement | HTMLVideoElement | null>(null);
   const assetsRef = useRef<PreparedAssets | null>(null);
   const rafRef = useRef(0);
   const lastVideoStateAtRef = useRef(0);
+  const [editingField, setEditingField] = useState<'tag' | 'headline' | 'bodyText' | null>(null);
+  const [canvasScale, setCanvasScale] = useState(1);
   fieldsRef.current = fields;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || typeof ResizeObserver === 'undefined') return;
+    const update = () => setCanvasScale(canvas.clientWidth / POST_WIDTH || 1);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(canvas);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!editable) setEditingField(null);
+  }, [editable]);
 
   const emitVideoState = (video: HTMLVideoElement, force = false) => {
     const now = performance.now();
@@ -1054,14 +1072,122 @@ const SmPostCanvas = forwardRef<
     },
   }));
 
+  const layout = SM_POST_LAYOUTS[fields.layoutId] ?? SM_POST_LAYOUTS.classic;
+  const headlineBox = {
+    ...layout.headline,
+    y: layout.headline.y + fields.tagHeadlineOffset,
+  };
+  const bodyBox = layout.kind === 'post9'
+    ? layout.bodyText
+    : {
+        ...layout.bodyText,
+        y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset,
+      };
+  const handleBox = layout.kind === 'post9' ? layout.handle : undefined;
+
+  const editableBox = editingField === 'headline'
+    ? headlineBox
+    : editingField === 'bodyText'
+      ? bodyBox
+      : editingField === 'tag'
+        ? (handleBox ?? (layout.tag
+          ? {
+              x: layout.tag.centerX - 230,
+              y: layout.tag.y,
+              width: 460,
+              height: Math.max(layout.tag.height, 64),
+              align: 'center' as const,
+              color: layout.tag.textColor,
+              fontFamily: layout.tag.fontFamily,
+              fontWeight: layout.tag.fontWeight,
+              fontSize: layout.tag.fontSize,
+              lineHeight: 1,
+            }
+          : undefined))
+        : undefined;
+
+  const editableValue = editingField === 'headline'
+    ? fields.headline
+    : editingField === 'bodyText'
+      ? fields.bodyText
+      : editingField === 'tag'
+        ? fields.tag
+        : '';
+
+  const handleCanvasDoubleClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!editable || !onTextChange) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * POST_WIDTH;
+    const y = ((event.clientY - rect.top) / rect.height) * POST_HEIGHT;
+    const hit = (box: { x: number; y: number; width: number; height: number }) => (
+      x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height
+    );
+
+    if (layout.kind !== 'post9' && hit(headlineBox) && fields.headline) {
+      setEditingField('headline');
+      return;
+    }
+    if ((layout.kind === 'standard' || layout.kind === 'post9') && hit(bodyBox) && fields.bodyText) {
+      setEditingField('bodyText');
+      return;
+    }
+    if (layout.kind === 'post9' && handleBox && hit(handleBox) && fields.tag) {
+      setEditingField('tag');
+      return;
+    }
+    if (layout.kind === 'standard' && layout.tag && fields.tag) {
+      const tagHitBox = { x: layout.tag.centerX - 230, y: layout.tag.y - 12, width: 460, height: layout.tag.height + 24 };
+      if (hit(tagHitBox)) setEditingField('tag');
+    }
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      width={POST_WIDTH}
-      height={POST_HEIGHT}
-      className="sm-post-canvas"
-      aria-label="Prévia da lâmina"
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        width={POST_WIDTH}
+        height={POST_HEIGHT}
+        className="sm-post-canvas"
+        aria-label="Prévia da lâmina"
+        onDoubleClick={handleCanvasDoubleClick}
+      />
+      {editable && editingField && editableBox && onTextChange && (
+        <textarea
+          autoFocus
+          className="sm-post-inline-text-editor"
+          aria-label="Editar texto diretamente na arte"
+          value={editableValue}
+          onChange={(event) => onTextChange(editingField, event.target.value)}
+          onBlur={() => setEditingField(null)}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              setEditingField(null);
+            }
+          }}
+          style={{
+            left: `${editableBox.x * canvasScale}px`,
+            top: `${editableBox.y * canvasScale}px`,
+            width: `${editableBox.width * canvasScale}px`,
+            minHeight: `${Math.max(editableBox.height, 56) * canvasScale}px`,
+            fontSize: `${(editingField === 'headline'
+              ? fields.headlineFontSize
+              : editingField === 'bodyText'
+                ? fields.bodyFontSize
+                : editableBox.fontSize) * canvasScale}px`,
+            lineHeight: editingField === 'headline'
+              ? fields.headlineLineHeight
+              : editingField === 'bodyText'
+                ? fields.bodyLineHeight
+                : editableBox.lineHeight,
+            fontFamily: editableBox.fontFamily,
+            fontWeight: editableBox.fontWeight,
+            textAlign: editableBox.align,
+            color: editableBox.color,
+          }}
+        />
+      )}
+    </>
   );
 });
 
