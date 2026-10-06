@@ -11,6 +11,36 @@ Sempre que uma mudança funcional for enviada para a `main`:
 3. registrar aqui a data, o objetivo, os principais ajustes e o commit funcional;
 4. validar o build automático antes de considerar a versão estável.
 
+## v07.1 — 06/10/2026
+
+Commit funcional principal: `b4546669e023e1912abd6bbcbb756c920001d85c`
+
+Ajuste visual: `1f98543dc4545f444d1142925c2e6252bd75c0da`
+
+Branch de segurança: `backup/main-before-v071-manual-cloud-save-2026-10-06`
+
+### Ajustes
+
+- Supabase deixa de receber autosave automático durante a edição.
+- IndexedDB continua salvando automaticamente como rascunho local.
+- Adicionado botão com ícone **Salvar no histórico** abaixo do nome da criação.
+- Primeiro salvamento cria a entrada em `fg_projects`.
+- Novos cliques atualizam a mesma criação usando o mesmo ID.
+- Adicionados estados visuais: rascunho local, salvando, salvo, alterações não salvas e erro.
+- Alterações posteriores a um projeto já salvo passam a indicar **Salvar alterações**.
+- A lista lateral **Histórico** passa a exibir somente projetos existentes no Supabase.
+- Histórico mostra quantidade de lâminas e data/hora da última edição salva.
+- Criar uma nova criação não envia automaticamente a criação anterior ao Supabase.
+- Ao abrir uma criação do histórico, ela também é armazenada localmente para continuidade e fallback.
+- Interface identificada como v07.1.
+
+### Fluxo de persistência
+
+- Edição contínua → IndexedDB.
+- Clique em **Salvar no histórico** → Supabase `fg_projects`.
+- Histórico lateral → exclusivamente Supabase.
+- Falha no Supabase não impede o autosave local.
+
 ## v07 — 05/10/2026
 
 Commit funcional principal: `60bdbe33a2b154aedb6a1dcd1b78c6d087985b90`
