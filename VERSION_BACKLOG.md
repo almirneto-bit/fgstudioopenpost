@@ -179,3 +179,28 @@ Foi criado o `PROJECT_CONTEXT.md` como fonte oficial de contexto e checklist ant
 - Alterações entram primeiro em modo de prévia com **Aplicar** ou **Descartar**.
 - A prévia não altera o projeto nem dispara salvamento no histórico até o usuário confirmar.
 - Branch de segurança: `backup/main-before-auto-layout-v01-2026-10-06`.
+
+
+## v08-beta — Auto Layout orientado por design + UX de edição (2026-10-06)
+
+- Auto Layout agora possui três modos de intenção:
+  - Equilibrado;
+  - Legibilidade;
+  - Headline forte.
+- Regras de composição passaram a considerar proximidade, alinhamento, hierarquia, safe area e espaço negativo.
+- Headline + body são tratados semanticamente como um único grupo visual nos templates standard.
+- Guardrails determinísticos:
+  - body mínimo de 26px;
+  - no modo Legibilidade, body mínimo de 30px;
+  - entrelinha mínima mais confortável;
+  - limite ampliado para aproximar headline e body sem quebrar o template.
+- O backend Kie passa a receber o modo escolhido e instruções específicas de direção de layout.
+- Posição horizontal e vertical da mídia migraram de inputs numéricos para sliders.
+- Adicionado botão “Centralizar mídia”.
+- Edição direta de texto no canvas:
+  - duplo clique em headline, body, tag/handle;
+  - edição acontece sobre a arte;
+  - Esc ou clique fora encerra a edição;
+  - painel lateral continua sincronizado e disponível.
+- A prévia do Auto Layout também aplica guardrails de legibilidade mesmo quando a IA não propõe mudanças suficientes.
+- UI identificada como `v08-beta`.
