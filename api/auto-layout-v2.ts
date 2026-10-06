@@ -1,4 +1,4 @@
-const AUTO_LAYOUT_BACKEND_VERSION = 'v4-template-profiles-2026-10-06';
+const AUTO_LAYOUT_BACKEND_VERSION = 'v5-readability-only-2026-10-06';
 
 type AutoLayoutProperty =
   | 'headlineFontSize'
@@ -10,10 +10,7 @@ type AutoLayoutProperty =
   | 'imageScale'
   | 'imageOffsetX'
   | 'imageOffsetY'
-  | 'textGroupOffsetX'
-  | 'textGroupOffsetY'
-  | 'headlineWidth'
-  | 'bodyWidth';
+;
 
 const LIMITS: Record<AutoLayoutProperty, { min: number; max: number }> = {
   headlineFontSize: { min: 8, max: 250 },
@@ -25,10 +22,6 @@ const LIMITS: Record<AutoLayoutProperty, { min: number; max: number }> = {
   imageScale: { min: 1, max: 2.5 },
   imageOffsetX: { min: -800, max: 800 },
   imageOffsetY: { min: -800, max: 800 },
-  textGroupOffsetX: { min: -360, max: 360 },
-  textGroupOffsetY: { min: -360, max: 360 },
-  headlineWidth: { min: 180, max: 980 },
-  bodyWidth: { min: 180, max: 980 },
 };
 
 function sanitizeAutoLayoutChanges(input: unknown) {
@@ -53,12 +46,9 @@ function sanitizeAutoLayoutChanges(input: unknown) {
   }).slice(0, 9);
 }
 
-type AutoLayoutMode = 'balanced' | 'readability' | 'headline';
-
 type AutoLayoutRequest = {
   state?: unknown;
   screenshotDataUrl?: string;
-  mode?: AutoLayoutMode;
 };
 
 function extractJson(content: string) {
@@ -75,21 +65,15 @@ function extractJson(content: string) {
   };
 }
 
-function promptFor(state: unknown, mode: AutoLayoutMode = 'balanced') {
+function promptFor(state: unknown) {
   return [
     'Você é o Auto Layout do FG Post Studio, um editor de social media do Favela Gaming.',
     'Analise a composição atual e proponha somente alterações objetivas nas propriedades permitidas.',
-    `MODO ATUAL: ${mode}.`,
-    mode === 'readability'
-      ? 'Priorize legibilidade: body claramente legível, headline sem dominância excessiva e headline + body visualmente próximos.'
-      : mode === 'headline'
-        ? 'Priorize headline forte, mas nunca sacrifique a legibilidade nem desconecte o body.'
-        : 'Priorize equilíbrio geral com o menor número de mudanças necessárias.',
+    'MODO ÚNICO: legibilidade.',
+    'Priorize body claramente legível, headline sem dominância excessiva e headline + body visualmente próximos.',
     'Não altere textos, cores, logos, assets ou o layout/template.',
     'Prefira poucas mudanças com impacto claro. Não mude uma propriedade se ela já estiver adequada.',
     'Em templates standard, trate headline e body como um único grupo visual.',
-    'Use textGroupOffsetX e textGroupOffsetY quando o bloco inteiro precisar ser reposicionado, em vez de deslocar headline e body separadamente.',
-    'Use headlineWidth e bodyWidth para controlar comprimento de linha e densidade visual sem quebrar o eixo de alinhamento do template.',
     'Não reduza body abaixo de 26px.',
     'Evite distâncias excessivas entre headline e body; use headlineBodyOffset para aproximar ou afastar quando necessário.',
     'Preserve o eixo de alinhamento do template e mantenha textos importantes dentro da safe area.',
@@ -104,9 +88,9 @@ function promptFor(state: unknown, mode: AutoLayoutMode = 'balanced') {
   ].join('\n');
 }
 
-async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: string, mode: AutoLayoutMode = 'balanced') {
+async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: string) {
   const content: Array<Record<string, unknown>> = [
-    { type: 'text', text: promptFor(state, mode) },
+    { type: 'text', text: promptFor(state) },
   ];
   if (screenshotDataUrl?.startsWith('data:image/')) {
     content.push({ type: 'image_url', image_url: { url: screenshotDataUrl } });
@@ -153,10 +137,6 @@ async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: strin
                             'imageScale',
                             'imageOffsetX',
                             'imageOffsetY',
-                            'textGroupOffsetX',
-                            'textGroupOffsetY',
-                            'headlineWidth',
-                            'bodyWidth',
                           ],
                         },
                         value: { type: 'number' },
@@ -200,12 +180,11 @@ async function handleAutoLayout(request: Request) {
   }
 
   try {
-    const mode: AutoLayoutMode = body.mode === 'readability' || body.mode === 'headline' ? body.mode : 'balanced';
-    let response = await callKie(apiKey, body.state, body.screenshotDataUrl, mode);
+    let response = await callKie(apiKey, body.state, body.screenshotDataUrl);
     // Alguns gateways multimodais aceitam apenas URLs públicas. Se o data URL for recusado,
     // preservamos o teste de Auto Layout usando somente o estado estruturado.
     if (!response.ok && body.screenshotDataUrl) {
-      response = await callKie(apiKey, body.state, undefined, mode);
+      response = await callKie(apiKey, body.state);
     }
 
     const raw = await response.text();
