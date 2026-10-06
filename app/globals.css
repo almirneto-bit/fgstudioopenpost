@@ -41,6 +41,9 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .sm-post-slide-actions{display:grid;grid-template-columns:32px 32px 1fr 1fr;gap:5px;margin-top:8px}
 .sm-post-slide-actions button{border:1px solid var(--line);background:var(--card-inset);color:var(--fg-label);padding:6px 4px;font-size:10px}
 
+.sm-post-layout-groups{display:flex;flex-direction:column;gap:14px}
+.sm-post-layout-group{display:flex;flex-direction:column;gap:6px}
+.sm-post-layout-group-title{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg-muted)}
 .sm-post-layout-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .sm-post-layout-card{border:1px solid var(--line);background:var(--card-soft);color:var(--fg-label);padding:6px;text-align:left;display:flex;flex-direction:column;gap:3px}
 .sm-post-layout-card:hover{border-color:var(--fg)}
