@@ -1,4 +1,4 @@
-const AUTO_LAYOUT_BACKEND_VERSION = 'v3-layout-guidance-2026-10-06';
+const AUTO_LAYOUT_BACKEND_VERSION = 'v4-template-profiles-2026-10-06';
 
 type AutoLayoutProperty =
   | 'headlineFontSize'
@@ -9,7 +9,11 @@ type AutoLayoutProperty =
   | 'headlineBodyOffset'
   | 'imageScale'
   | 'imageOffsetX'
-  | 'imageOffsetY';
+  | 'imageOffsetY'
+  | 'textGroupOffsetX'
+  | 'textGroupOffsetY'
+  | 'headlineWidth'
+  | 'bodyWidth';
 
 const LIMITS: Record<AutoLayoutProperty, { min: number; max: number }> = {
   headlineFontSize: { min: 8, max: 250 },
@@ -21,6 +25,10 @@ const LIMITS: Record<AutoLayoutProperty, { min: number; max: number }> = {
   imageScale: { min: 1, max: 2.5 },
   imageOffsetX: { min: -800, max: 800 },
   imageOffsetY: { min: -800, max: 800 },
+  textGroupOffsetX: { min: -360, max: 360 },
+  textGroupOffsetY: { min: -360, max: 360 },
+  headlineWidth: { min: 180, max: 980 },
+  bodyWidth: { min: 180, max: 980 },
 };
 
 function sanitizeAutoLayoutChanges(input: unknown) {
@@ -80,6 +88,8 @@ function promptFor(state: unknown, mode: AutoLayoutMode = 'balanced') {
     'Não altere textos, cores, logos, assets ou o layout/template.',
     'Prefira poucas mudanças com impacto claro. Não mude uma propriedade se ela já estiver adequada.',
     'Em templates standard, trate headline e body como um único grupo visual.',
+    'Use textGroupOffsetX e textGroupOffsetY quando o bloco inteiro precisar ser reposicionado, em vez de deslocar headline e body separadamente.',
+    'Use headlineWidth e bodyWidth para controlar comprimento de linha e densidade visual sem quebrar o eixo de alinhamento do template.',
     'Não reduza body abaixo de 26px.',
     'Evite distâncias excessivas entre headline e body; use headlineBodyOffset para aproximar ou afastar quando necessário.',
     'Preserve o eixo de alinhamento do template e mantenha textos importantes dentro da safe area.',
@@ -143,6 +153,10 @@ async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: strin
                             'imageScale',
                             'imageOffsetX',
                             'imageOffsetY',
+                            'textGroupOffsetX',
+                            'textGroupOffsetY',
+                            'headlineWidth',
+                            'bodyWidth',
                           ],
                         },
                         value: { type: 'number' },
