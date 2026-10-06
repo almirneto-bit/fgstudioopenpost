@@ -43,6 +43,13 @@ type AutoLayoutState = 'idle' | 'loading' | 'preview' | 'error';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
+const LAYOUT_GROUPS: Array<{ label: string; ids: SmPostLayoutId[] }> = [
+  { label: 'Base', ids: ['classic'] },
+  { label: 'Kanit', ids: ['kanit-left', 'kanit-center', 'kanit-right'] },
+  { label: 'Vina', ids: ['vina-left', 'vina-right'] },
+  { label: 'Especiais', ids: ['post-7', 'post-8', 'post-9'] },
+];
+
 function formatVideoTime(seconds: number) {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
   const minutes = Math.floor(safe / 60);
@@ -441,7 +448,6 @@ export default function SmPostEditor() {
         body: JSON.stringify({
           state: buildAutoLayoutState(fields),
           screenshotDataUrl,
-          mode: 'readability',
         }),
       });
 
@@ -709,19 +715,29 @@ export default function SmPostEditor() {
 
         <div className="sm-post-rail-section">
           <div className="sm-post-section-head"><span>Adicionar layout</span></div>
-          <div className="sm-post-layout-grid">
-            {SM_POST_LAYOUT_OPTIONS.map((option) => (
-              <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)}>
-                <span
-                  className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}
-                >
-                  {option.tag && <i />}
-                  <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
-                  <em />
-                </span>
-                <span>{option.shortName}</span>
-                <small>+ adicionar</small>
-              </button>
+          <div className="sm-post-layout-groups">
+            {LAYOUT_GROUPS.map((group) => (
+              <div key={group.label} className="sm-post-layout-group">
+                <div className="sm-post-layout-group-title">{group.label}</div>
+                <div className="sm-post-layout-grid">
+                  {group.ids.map((layoutId) => {
+                    const option = SM_POST_LAYOUTS[layoutId];
+                    return (
+                      <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)}>
+                        <span
+                          className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}
+                        >
+                          {option.tag && <i />}
+                          <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
+                          <em />
+                        </span>
+                        <span>{option.shortName.replace(/^Base · |^Kanit · |^Vina · |^Especial · /, '')}</span>
+                        <small>+ adicionar</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             ))}
           </div>
         </div>
@@ -976,7 +992,7 @@ export default function SmPostEditor() {
               {fields.noiseEnabled && (
                 <div className="sm-post-disclosure-panel">
                   <label className="sm-post-field sm-post-range-field"><span>Intensidade <strong>{fields.noiseIntensity}%</strong></span><input type="range" min="0" max="100" step="1" value={fields.noiseIntensity} onChange={(event) => setField('noiseIntensity', Number(event.target.value))} /></label>
-                  <label className="sm-post-field sm-post-range-field"><span>Tamanho do grão <strong>{fields.noiseSize}px</strong></span><input type="range" min="1" max="12" step="1" value={fields.noiseSize} onChange={(event) => setField('noiseSize', Number(event.target.value))} /></label>
+                  <label className="sm-post-field sm-post-range-field"><span>Tamanho do grão <strong>{String(fields.noiseSize).padStart(2, '0')}</strong></span><input type="range" min="1" max="12" step="1" value={fields.noiseSize} onChange={(event) => setField('noiseSize', Number(event.target.value))} /></label>
                 </div>
               )}
             </div>
