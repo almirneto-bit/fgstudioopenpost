@@ -1118,6 +1118,7 @@ const SmPostCanvas = forwardRef<
               fontWeight: layout.tag.fontWeight,
               fontSize: layout.tag.fontSize,
               lineHeight: 1,
+              letterSpacing: layout.tag.letterSpacing,
             }
           : undefined))
         : undefined;
@@ -1196,6 +1197,7 @@ const SmPostCanvas = forwardRef<
           key={editingField}
           contentEditable
           suppressContentEditableWarning
+          spellCheck={false}
           role="textbox"
           aria-multiline="true"
           aria-label="Editar texto diretamente na arte"
@@ -1210,7 +1212,7 @@ const SmPostCanvas = forwardRef<
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault();
-              setEditingField(null);
+              event.currentTarget.blur();
             }
           }}
           style={{
