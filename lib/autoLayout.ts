@@ -195,11 +195,13 @@ export function applyAutoLayoutChanges(
   next.textGroupOffsetY = clamp(next.textGroupOffsetY, profile.groupY.min, profile.groupY.max);
   next.headlineWidth = clamp(next.headlineWidth, profile.headlineWidth.min, profile.headlineWidth.max);
   next.bodyWidth = clamp(next.bodyWidth, profile.bodyWidth.min, profile.bodyWidth.max);
-  if (layout.kind === 'standard' && next.bodyText.trim()) {
+  if (next.bodyText.trim()) {
     const minBody = mode === 'readability' ? Math.max(30, profile.bodyMin) : profile.bodyMin;
     next.bodyFontSize = Math.max(minBody, next.bodyFontSize);
     next.bodyLineHeight = Math.max(mode === 'readability' ? 1.05 : 0.95, next.bodyLineHeight);
-    next.headlineBodyOffset = clamp(next.headlineBodyOffset, profile.gapPreference.min, Math.min(100, profile.gapPreference.max));
+    if (layout.kind === 'standard') {
+      next.headlineBodyOffset = clamp(next.headlineBodyOffset, profile.gapPreference.min, Math.min(100, profile.gapPreference.max));
+    }
   }
 
   return next;
