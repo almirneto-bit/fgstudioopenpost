@@ -40,6 +40,7 @@ type ExportFormat = 'png' | 'gif' | 'mp4';
 type VideoPreviewState = { duration: number; currentTime: number; isPlaying: boolean };
 type CloudSaveState = 'not_saved' | 'saved' | 'dirty' | 'saving' | 'error';
 type AutoLayoutState = 'idle' | 'loading' | 'preview' | 'error';
+type AutoLayoutMode = 'balanced' | 'readability' | 'headline';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
@@ -143,6 +144,7 @@ export default function SmPostEditor() {
   const [autoLayoutChanges, setAutoLayoutChanges] = useState<AutoLayoutChange[]>([]);
   const [autoLayoutPreviewFields, setAutoLayoutPreviewFields] = useState<SmPostFields | null>(null);
   const [autoLayoutDetail, setAutoLayoutDetail] = useState('');
+  const [autoLayoutMode, setAutoLayoutMode] = useState<AutoLayoutMode>('balanced');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -439,8 +441,9 @@ export default function SmPostEditor() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          state: buildAutoLayoutState(fields),
+          state: buildAutoLayoutState(fields, autoLayoutMode),
           screenshotDataUrl,
+          mode: autoLayoutMode,
         }),
       });
 
@@ -597,7 +600,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v08-alpha.2</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v08-beta</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -742,6 +745,17 @@ export default function SmPostEditor() {
           <>
             <div className="sm-post-section-head sm-post-auto-layout-head">
               <span>Conteúdo da lâmina {activeIndex + 1}</span>
+              <div className="sm-post-auto-layout-tools">
+                <select
+                  className="sm-post-auto-layout-mode"
+                  value={autoLayoutMode}
+                  onChange={(event) => setAutoLayoutMode(event.target.value as AutoLayoutMode)}
+                  aria-label="Modo do Auto Layout"
+                >
+                  <option value="balanced">Equilibrado</option>
+                  <option value="readability">Legibilidade</option>
+                  <option value="headline">Headline forte</option>
+                </select>
               <button
                 type="button"
                 className="sm-post-auto-layout-btn"
@@ -750,6 +764,7 @@ export default function SmPostEditor() {
               >
                 {autoLayoutState === 'loading' ? 'Analisando…' : '✦ Auto Layout'}
               </button>
+              </div>
             </div>
 
             {autoLayoutState === 'error' && (
@@ -816,10 +831,20 @@ export default function SmPostEditor() {
                   <span>Zoom da mídia <strong>{Math.round(fields.imageScale * 100)}%</strong></span>
                   <input type="range" min="1" max="2.5" step="0.01" value={fields.imageScale} onChange={(event) => setField('imageScale', Number(event.target.value))} />
                 </label>
-                <div className="sm-post-two-col">
-                  <label className="sm-post-field"><span>Posição horizontal</span><input type="number" min="-800" max="800" step="5" value={fields.imageOffsetX} onChange={(event) => setField('imageOffsetX', Number(event.target.value))} /></label>
-                  <label className="sm-post-field"><span>Posição vertical</span><input type="number" min="-800" max="800" step="5" value={fields.imageOffsetY} onChange={(event) => setField('imageOffsetY', Number(event.target.value))} /></label>
-                </div>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Posição horizontal <strong>{fields.imageOffsetX > 0 ? '+' : ''}{fields.imageOffsetX}px</strong></span>
+                  <input type="range" min="-800" max="800" step="5" value={fields.imageOffsetX} onChange={(event) => setField('imageOffsetX', Number(event.target.value))} />
+                </label>
+                <label className="sm-post-field sm-post-range-field">
+                  <span>Posição vertical <strong>{fields.imageOffsetY > 0 ? '+' : ''}{fields.imageOffsetY}px</strong></span>
+                  <input type="range" min="-800" max="800" step="5" value={fields.imageOffsetY} onChange={(event) => setField('imageOffsetY', Number(event.target.value))} />
+                </label>
+                {(fields.imageOffsetX !== 0 || fields.imageOffsetY !== 0) && (
+                  <button type="button" className="sm-post-reset-media-position" onClick={() => {
+                    setField('imageOffsetX', 0);
+                    setField('imageOffsetY', 0);
+                  }}>Centralizar mídia</button>
+                )}
               </div>
             )}
 
@@ -984,7 +1009,7 @@ export default function SmPostEditor() {
                 <div className="sm-post-hairline" />
                 <label className="sm-post-field sm-post-range-field">
                   <span>Espaço Headline → Body <strong>{fields.headlineBodyOffset > 0 ? '+' : ''}{fields.headlineBodyOffset}px</strong></span>
-                  <input type="range" min="-180" max="180" step="2" value={fields.headlineBodyOffset} onChange={(event) => setField('headlineBodyOffset', Number(event.target.value))} />
+                  <input type="range" min="-360" max="180" step="2" value={fields.headlineBodyOffset} onChange={(event) => setField('headlineBodyOffset', Number(event.target.value))} />
                 </label>
               </>
             )}
@@ -1011,6 +1036,8 @@ export default function SmPostEditor() {
             fields={displayFields}
             onError={setError}
             onVideoStateChange={setVideoPreview}
+            editable={!autoLayoutPreviewFields}
+            onTextChange={(field, value) => setField(field, value)}
           />
           {showSafeArea && (
             <div
