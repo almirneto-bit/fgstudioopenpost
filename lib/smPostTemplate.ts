@@ -282,10 +282,14 @@ export type SmPostFields = {
   headlineFontSize: number;
   headlineLineHeight: number;
   tagHeadlineOffset: number;
+  textGroupOffsetX: number;
+  textGroupOffsetY: number;
+  headlineWidth: number;
   bodyText: string;
   bodyUppercase: boolean;
   bodyFontSize: number;
   bodyLineHeight: number;
+  bodyWidth: number;
   headlineBodyOffset: number;
 };
 
@@ -319,10 +323,14 @@ export function createDefaultFields(layoutId: SmPostLayoutId = 'classic'): SmPos
     headlineFontSize: layout.headline.fontSize,
     headlineLineHeight: layout.headline.lineHeight,
     tagHeadlineOffset: 0,
+    textGroupOffsetX: 0,
+    textGroupOffsetY: 0,
+    headlineWidth: layout.headline.width,
     bodyText: 'Os games se tornaram um espaço de encontro entre diferentes pessoas, histórias e referências.',
     bodyUppercase: false,
     bodyFontSize: layout.bodyText.fontSize,
     bodyLineHeight: layout.bodyText.lineHeight,
+    bodyWidth: layout.bodyText.width,
     headlineBodyOffset: 0,
   };
 
