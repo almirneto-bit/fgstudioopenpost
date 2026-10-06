@@ -399,6 +399,20 @@ async function prepareAssets(): Promise<PreparedAssets> {
   return preparedAssetsPromise;
 }
 
+function withAlignedWidth<T extends { x: number; width: number; align: TextAlign }>(
+  box: T,
+  width: number,
+  offsetX = 0,
+): T {
+  const safeWidth = Math.max(1, width);
+  const anchorShift = box.align === 'right'
+    ? box.width - safeWidth
+    : box.align === 'center'
+      ? (box.width - safeWidth) / 2
+      : 0;
+  return { ...box, x: box.x + anchorShift + offsetX, width: safeWidth };
+}
+
 function drawScene(
   ctx: CanvasRenderingContext2D,
   fields: SmPostFields,
@@ -473,10 +487,8 @@ function drawScene(
   }
 
   const headlineBox = {
-    ...layout.headline,
-    x: layout.headline.x + fields.textGroupOffsetX,
+    ...withAlignedWidth(layout.headline, fields.headlineWidth, fields.textGroupOffsetX),
     y: layout.headline.y + fields.tagHeadlineOffset + fields.textGroupOffsetY,
-    width: fields.headlineWidth,
   };
   drawParagraph(ctx, textForDisplay(fields.headline, fields.headlineUppercase), headlineBox, {
     ...layout.headline,
@@ -488,10 +500,8 @@ function drawScene(
 
   if (layout.kind === 'standard' && fields.bodyText) {
     const bodyBox = {
-      ...layout.bodyText,
-      x: layout.bodyText.x + fields.textGroupOffsetX,
+      ...withAlignedWidth(layout.bodyText, fields.bodyWidth, fields.textGroupOffsetX),
       y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset + fields.textGroupOffsetY,
-      width: fields.bodyWidth,
     };
     drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), bodyBox, {
       ...layout.bodyText,
@@ -1078,23 +1088,17 @@ const SmPostCanvas = forwardRef<
 
   const layout = SM_POST_LAYOUTS[fields.layoutId] ?? SM_POST_LAYOUTS.classic;
   const headlineBox = {
-    ...layout.headline,
-    x: layout.headline.x + fields.textGroupOffsetX,
+    ...withAlignedWidth(layout.headline, fields.headlineWidth, fields.textGroupOffsetX),
     y: layout.headline.y + fields.tagHeadlineOffset + fields.textGroupOffsetY,
-    width: fields.headlineWidth,
   };
   const bodyBox = layout.kind === 'post9'
     ? {
-        ...layout.bodyText,
-        x: layout.bodyText.x + fields.textGroupOffsetX,
+        ...withAlignedWidth(layout.bodyText, fields.bodyWidth, fields.textGroupOffsetX),
         y: layout.bodyText.y + fields.textGroupOffsetY,
-        width: fields.bodyWidth,
       }
     : {
-        ...layout.bodyText,
-        x: layout.bodyText.x + fields.textGroupOffsetX,
+        ...withAlignedWidth(layout.bodyText, fields.bodyWidth, fields.textGroupOffsetX),
         y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset + fields.textGroupOffsetY,
-        width: fields.bodyWidth,
       };
   const handleBox = layout.kind === 'post9' ? layout.handle : undefined;
 
