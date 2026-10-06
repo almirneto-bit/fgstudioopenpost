@@ -28,11 +28,18 @@ import {
   listCloudProjects,
   saveCloudProject,
 } from '@/lib/smPostCloudStorage';
+import {
+  applyAutoLayoutChanges,
+  buildAutoLayoutState,
+  sanitizeAutoLayoutChanges,
+  type AutoLayoutChange,
+} from '@/lib/autoLayout';
 
 type EditorTab = 'edit' | 'advanced';
 type ExportFormat = 'png' | 'gif' | 'mp4';
 type VideoPreviewState = { duration: number; currentTime: number; isPlaying: boolean };
 type CloudSaveState = 'not_saved' | 'saved' | 'dirty' | 'saving' | 'error';
+type AutoLayoutState = 'idle' | 'loading' | 'preview' | 'error';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
@@ -41,6 +48,18 @@ function formatVideoTime(seconds: number) {
   const minutes = Math.floor(safe / 60);
   const remaining = Math.floor(safe % 60);
   return `${minutes}:${String(remaining).padStart(2, '0')}`;
+}
+
+async function blobToPreviewDataUrl(blob: Blob) {
+  const bitmap = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  canvas.width = 540;
+  canvas.height = 720;
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Não foi possível preparar a prévia para a IA.');
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  return canvas.toDataURL('image/jpeg', 0.72);
 }
 
 function inferMediaType(url: string | null, current?: SmPostMediaType): SmPostMediaType {
@@ -119,6 +138,10 @@ export default function SmPostEditor() {
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const [cloudSaveState, setCloudSaveState] = useState<CloudSaveState>('not_saved');
   const [cloudErrorDetail, setCloudErrorDetail] = useState('');
+  const [autoLayoutState, setAutoLayoutState] = useState<AutoLayoutState>('idle');
+  const [autoLayoutSummary, setAutoLayoutSummary] = useState('');
+  const [autoLayoutChanges, setAutoLayoutChanges] = useState<AutoLayoutChange[]>([]);
+  const [autoLayoutPreviewFields, setAutoLayoutPreviewFields] = useState<SmPostFields | null>(null);
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -195,6 +218,13 @@ export default function SmPostEditor() {
   useEffect(() => {
     setVideoPreview(EMPTY_VIDEO_PREVIEW);
   }, [activeSlide?.id, fields?.imageUrl, fields?.mediaType]);
+
+  useEffect(() => {
+    setAutoLayoutState('idle');
+    setAutoLayoutSummary('');
+    setAutoLayoutChanges([]);
+    setAutoLayoutPreviewFields(null);
+  }, [activeSlide?.id, fields?.layoutId]);
 
   const updateProject = (recipe: (current: SmPostProject) => SmPostProject) => {
     setProject((current) => current ? { ...recipe(current), updatedAt: Date.now() } : current);
@@ -386,6 +416,84 @@ export default function SmPostEditor() {
     }
   };
 
+  const requestAutoLayout = async () => {
+    if (!fields || autoLayoutState === 'loading') return;
+    setAutoLayoutState('loading');
+    setAutoLayoutSummary('');
+    setAutoLayoutChanges([]);
+    setAutoLayoutPreviewFields(null);
+    setError('');
+
+    try {
+      let screenshotDataUrl: string | undefined;
+      try {
+        const screenshot = await canvasRef.current?.exportPng();
+        if (screenshot) screenshotDataUrl = await blobToPreviewDataUrl(screenshot);
+      } catch {
+        // O estado estruturado continua suficiente para o teste caso a captura não esteja disponível.
+      }
+
+      const response = await fetch('/api/auto-layout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          state: buildAutoLayoutState(fields),
+          screenshotDataUrl,
+        }),
+      });
+
+      const payload = await response.json() as {
+        error?: string;
+        detail?: string;
+        summary?: string;
+        changes?: unknown;
+      };
+      if (!response.ok) {
+        throw new Error(payload.error || 'Não foi possível gerar o Auto Layout.');
+      }
+
+      const changes = sanitizeAutoLayoutChanges(payload.changes);
+      if (!changes.length) {
+        setAutoLayoutSummary(payload.summary || 'A composição atual já está equilibrada dentro das regras disponíveis.');
+        setAutoLayoutState('preview');
+        return;
+      }
+
+      setAutoLayoutChanges(changes);
+      setAutoLayoutSummary(payload.summary || 'Sugestão de Auto Layout pronta.');
+      setAutoLayoutPreviewFields(applyAutoLayoutChanges(fields, changes));
+      setAutoLayoutState('preview');
+    } catch (autoLayoutError) {
+      const message = autoLayoutError instanceof Error ? autoLayoutError.message : 'Falha ao gerar Auto Layout.';
+      setAutoLayoutState('error');
+      setError(`Auto Layout: ${message}`);
+    }
+  };
+
+  const applyAutoLayout = () => {
+    if (!autoLayoutPreviewFields || !activeSlide) {
+      setAutoLayoutState('idle');
+      return;
+    }
+    updateProject((current) => ({
+      ...current,
+      slides: current.slides.map((slide) => slide.id === activeSlide.id
+        ? { ...slide, fields: autoLayoutPreviewFields }
+        : slide),
+    }));
+    setAutoLayoutState('idle');
+    setAutoLayoutSummary('');
+    setAutoLayoutChanges([]);
+    setAutoLayoutPreviewFields(null);
+  };
+
+  const discardAutoLayout = () => {
+    setAutoLayoutState('idle');
+    setAutoLayoutSummary('');
+    setAutoLayoutChanges([]);
+    setAutoLayoutPreviewFields(null);
+  };
+
   const exportCurrent = async () => {
     if (!activeSlide) return;
     setExporting(true);
@@ -434,6 +542,7 @@ export default function SmPostEditor() {
     return <div className="sm-post-loading">Carregando o editor…</div>;
   }
 
+  const displayFields = autoLayoutPreviewFields ?? fields;
   const isPost9 = layout.kind === 'post9';
   const showTag = Boolean(layout.tag) || isPost9;
   const showHeadline = !isPost9;
@@ -611,7 +720,33 @@ export default function SmPostEditor() {
 
         {activeTab === 'edit' ? (
           <>
-            <div className="sm-post-section-head"><span>Conteúdo da lâmina {activeIndex + 1}</span></div>
+            <div className="sm-post-section-head sm-post-auto-layout-head">
+              <span>Conteúdo da lâmina {activeIndex + 1}</span>
+              <button
+                type="button"
+                className="sm-post-auto-layout-btn"
+                onClick={requestAutoLayout}
+                disabled={autoLayoutState === 'loading'}
+              >
+                {autoLayoutState === 'loading' ? 'Analisando…' : '✦ Auto Layout'}
+              </button>
+            </div>
+
+            {autoLayoutState === 'preview' && (
+              <div className="sm-post-auto-layout-preview">
+                <div>
+                  <strong>Prévia do Auto Layout</strong>
+                  <p>{autoLayoutSummary}</p>
+                  {autoLayoutChanges.length > 0 && (
+                    <small>{autoLayoutChanges.length} {autoLayoutChanges.length === 1 ? 'ajuste sugerido' : 'ajustes sugeridos'} · nada foi salvo ainda.</small>
+                  )}
+                </div>
+                <div className="sm-post-auto-layout-actions">
+                  <button type="button" onClick={discardAutoLayout}>Descartar</button>
+                  <button type="button" className="is-primary" onClick={applyAutoLayout} disabled={!autoLayoutPreviewFields}>Aplicar</button>
+                </div>
+              </div>
+            )}
 
             <label className="sm-post-field">
               <span>Layout</span>
@@ -836,11 +971,11 @@ export default function SmPostEditor() {
         </p>
       </section>
 
-      <main className={fields.mediaType === 'video' ? 'sm-post-stage has-video' : 'sm-post-stage'}>
+      <main className={displayFields.mediaType === 'video' ? 'sm-post-stage has-video' : 'sm-post-stage'}>
         <div className="sm-post-canvas-wrap">
           <SmPostCanvas
             ref={canvasRef}
-            fields={fields}
+            fields={displayFields}
             onError={setError}
             onVideoStateChange={setVideoPreview}
           />
