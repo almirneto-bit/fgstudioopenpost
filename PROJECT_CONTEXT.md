@@ -400,3 +400,29 @@ Antes de finalizar qualquer nova feature, confirmar:
 - O build do Next.js passa?
 
 Se alguma mudança exigir remover ou alterar uma dessas capacidades, isso deve ser tratado explicitamente antes de modificar a `main`.
+
+
+## 12. Atualização v08-alpha — Auto Layout
+
+A plataforma possui um teste inicial de Auto Layout assistido por IA.
+
+Arquivos principais:
+- `lib/autoLayout.ts`: estado estruturado, limites, validação e aplicação das sugestões.
+- `api/auto-layout.ts`: função server-side usada no deploy Vercel para acessar a Kie.ai sem expor a chave.
+- `components/post/SmPostEditor.tsx`: botão, captura da prévia, modo de preview e confirmação.
+
+Configuração necessária no Vercel:
+- variável secreta `KIE_API_KEY`.
+- opcionalmente `KIE_AUTO_LAYOUT_ENDPOINT` para trocar o endpoint sem alterar o código.
+
+Modelo padrão:
+- Kie.ai Gemini 3.8 Flash, endpoint OpenAI-compatible.
+
+Regra de segurança:
+- nunca usar `NEXT_PUBLIC_KIE_API_KEY`.
+- nunca colocar a chave em arquivos versionados.
+- toda sugestão da IA deve passar pela whitelist e pelos limites definidos em `lib/autoLayout.ts`.
+
+Escopo atual:
+- o Auto Layout não altera textos, cores, logos, assets nem o template.
+- a primeira versão trabalha somente com propriedades que já existiam no editor, para validar a utilidade da IA sem reestruturar o canvas.
