@@ -98,6 +98,7 @@ button:disabled{cursor:not-allowed;opacity:.45}
 .sm-post-reset-media-position{margin-top:2px;border:1px solid var(--line);background:var(--card-inset);color:var(--fg-body);border-radius:var(--r-ctrl);padding:7px 10px;font-size:10px;font-weight:600}
 .sm-post-inline-text-editor{position:absolute;z-index:5;margin:0;padding:4px 6px;border:1px solid rgba(255,255,255,.92);outline:2px solid rgba(0,0,0,.28);outline-offset:1px;background:rgba(12,12,15,.28);resize:none;overflow:hidden;box-shadow:0 3px 12px rgba(0,0,0,.18);caret-color:#fff}
 .sm-post-inline-text-editor:focus{outline:2px solid rgba(255,255,255,.95);outline-offset:1px}
+.sm-post-canvas-edit-hint{font-size:10px;color:var(--fg-muted);margin-top:-8px}
 .sm-post-canvas{cursor:text}
 
 .sm-post-auto-layout-preview{margin:10px 0 16px;padding:12px;background:var(--card-inset);border:1px solid var(--line);border-radius:var(--r-ctrl);display:grid;gap:12px}
