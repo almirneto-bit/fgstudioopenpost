@@ -40,7 +40,6 @@ type ExportFormat = 'png' | 'gif' | 'mp4';
 type VideoPreviewState = { duration: number; currentTime: number; isPlaying: boolean };
 type CloudSaveState = 'not_saved' | 'saved' | 'dirty' | 'saving' | 'error';
 type AutoLayoutState = 'idle' | 'loading' | 'preview' | 'error';
-type AutoLayoutMode = 'balanced' | 'readability' | 'headline';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
@@ -88,10 +87,6 @@ function normalizeProject(project: SmPostProject): SmPostProject {
         bodyFontSize: Math.min(250, Math.max(8, Number(slide.fields.bodyFontSize ?? defaults.bodyFontSize))),
         headlineLineHeight: Math.min(2, Math.max(0.5, Number(slide.fields.headlineLineHeight ?? defaults.headlineLineHeight))),
         bodyLineHeight: Math.min(2, Math.max(0.5, Number(slide.fields.bodyLineHeight ?? defaults.bodyLineHeight))),
-        textGroupOffsetX: Math.min(360, Math.max(-360, Number(slide.fields.textGroupOffsetX ?? defaults.textGroupOffsetX))),
-        textGroupOffsetY: Math.min(360, Math.max(-360, Number(slide.fields.textGroupOffsetY ?? defaults.textGroupOffsetY))),
-        headlineWidth: Math.min(980, Math.max(180, Number(slide.fields.headlineWidth ?? defaults.headlineWidth))),
-        bodyWidth: Math.min(980, Math.max(180, Number(slide.fields.bodyWidth ?? defaults.bodyWidth))),
         videoTrimStart: Math.max(0, Number(slide.fields.videoTrimStart ?? 0)),
         videoTrimEnd: slide.fields.videoTrimEnd == null ? null : Math.max(0, Number(slide.fields.videoTrimEnd)),
       },
@@ -148,7 +143,6 @@ export default function SmPostEditor() {
   const [autoLayoutChanges, setAutoLayoutChanges] = useState<AutoLayoutChange[]>([]);
   const [autoLayoutPreviewFields, setAutoLayoutPreviewFields] = useState<SmPostFields | null>(null);
   const [autoLayoutDetail, setAutoLayoutDetail] = useState('');
-  const [autoLayoutMode, setAutoLayoutMode] = useState<AutoLayoutMode>('balanced');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -313,10 +307,6 @@ export default function SmPostEditor() {
               bodyLineHeight: defaults.bodyLineHeight,
               layoutBackgroundColor: defaults.layoutBackgroundColor,
               tagHeadlineOffset: 0,
-              textGroupOffsetX: 0,
-              textGroupOffsetY: 0,
-              headlineWidth: defaults.headlineWidth,
-              bodyWidth: defaults.bodyWidth,
               headlineBodyOffset: 0,
             },
           }
@@ -449,9 +439,9 @@ export default function SmPostEditor() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          state: buildAutoLayoutState(fields, autoLayoutMode),
+          state: buildAutoLayoutState(fields),
           screenshotDataUrl,
-          mode: autoLayoutMode,
+          mode: 'readability',
         }),
       });
 
@@ -479,7 +469,7 @@ export default function SmPostEditor() {
       }
 
       const changes = sanitizeAutoLayoutChanges(payload.changes);
-      const previewFields = applyAutoLayoutChanges(fields, changes, autoLayoutMode);
+      const previewFields = applyAutoLayoutChanges(fields, changes);
       const guardrailChanged = (
         previewFields.bodyFontSize !== fields.bodyFontSize
         || previewFields.bodyLineHeight !== fields.bodyLineHeight
@@ -622,7 +612,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v08-beta.1</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v08-beta.2</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -768,16 +758,6 @@ export default function SmPostEditor() {
             <div className="sm-post-section-head sm-post-auto-layout-head">
               <span>Conteúdo da lâmina {activeIndex + 1}</span>
               <div className="sm-post-auto-layout-tools">
-                <select
-                  className="sm-post-auto-layout-mode"
-                  value={autoLayoutMode}
-                  onChange={(event) => setAutoLayoutMode(event.target.value as AutoLayoutMode)}
-                  aria-label="Modo do Auto Layout"
-                >
-                  <option value="balanced">Equilibrado</option>
-                  <option value="readability">Legibilidade</option>
-                  <option value="headline">Headline forte</option>
-                </select>
               <button
                 type="button"
                 className="sm-post-auto-layout-btn"
@@ -1035,32 +1015,6 @@ export default function SmPostEditor() {
                 </label>
               </>
             )}
-
-            <div className="sm-post-hairline" />
-            <div className="sm-post-text-edits">
-              <div className="sm-post-text-edits-title">Grupo de texto</div>
-              <label className="sm-post-field sm-post-range-field is-compact">
-                <span>Posição horizontal <strong>{fields.textGroupOffsetX > 0 ? '+' : ''}{fields.textGroupOffsetX}px</strong></span>
-                <input type="range" min="-360" max="360" step="2" value={fields.textGroupOffsetX} onChange={(event) => setField('textGroupOffsetX', Number(event.target.value))} />
-              </label>
-              <label className="sm-post-field sm-post-range-field is-compact">
-                <span>Posição vertical <strong>{fields.textGroupOffsetY > 0 ? '+' : ''}{fields.textGroupOffsetY}px</strong></span>
-                <input type="range" min="-360" max="360" step="2" value={fields.textGroupOffsetY} onChange={(event) => setField('textGroupOffsetY', Number(event.target.value))} />
-              </label>
-              {showHeadline && (
-                <label className="sm-post-field sm-post-range-field is-compact">
-                  <span>Largura da headline <strong>{fields.headlineWidth}px</strong></span>
-                  <input type="range" min="180" max="980" step="4" value={fields.headlineWidth} onChange={(event) => setField('headlineWidth', Number(event.target.value))} />
-                </label>
-              )}
-              {showBody && (
-                <label className="sm-post-field sm-post-range-field is-compact">
-                  <span>Largura do body <strong>{fields.bodyWidth}px</strong></span>
-                  <input type="range" min="180" max="980" step="4" value={fields.bodyWidth} onChange={(event) => setField('bodyWidth', Number(event.target.value))} />
-                </label>
-              )}
-            </div>
-
             <div className="sm-post-hairline" />
             <label className="sm-post-toggle-field">
               <span><strong>Margem de segurança</strong><small>Exibe guias de {SAFE_MARGIN}px somente na prévia.</small></span>
@@ -1099,7 +1053,7 @@ export default function SmPostEditor() {
             />
           )}
         </div>
-        <div className="sm-post-canvas-edit-hint">Duplo clique em um texto para editar direto na arte.</div>
+        <div className="sm-post-canvas-edit-hint">Clique em um texto para editar direto na arte.</div>
 
         {fields.mediaType === 'video' && fields.imageUrl && (
           <div className="sm-post-video-timeline">
