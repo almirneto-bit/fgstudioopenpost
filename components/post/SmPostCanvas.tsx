@@ -1109,7 +1109,13 @@ const SmPostCanvas = forwardRef<
         ...withAlignedWidth(layout.bodyText, fields.bodyWidth, fields.textGroupOffsetX),
         y: layout.bodyText.y + fields.tagHeadlineOffset + fields.headlineBodyOffset + fields.textGroupOffsetY,
       };
-  const handleBox = layout.kind === 'post9' ? layout.handle : undefined;
+  const handleBox = layout.kind === 'post9' && layout.handle
+    ? {
+        ...layout.handle,
+        x: layout.handle.x + fields.textGroupOffsetX,
+        y: layout.handle.y + fields.textGroupOffsetY,
+      }
+    : undefined;
 
   const editableBox = editingField === 'headline'
     ? headlineBox
