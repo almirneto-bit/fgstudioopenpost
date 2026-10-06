@@ -471,7 +471,14 @@ export default function SmPostEditor() {
       }
 
       const changes = sanitizeAutoLayoutChanges(payload.changes);
-      if (!changes.length) {
+      const previewFields = applyAutoLayoutChanges(fields, changes, autoLayoutMode);
+      const guardrailChanged = (
+        previewFields.bodyFontSize !== fields.bodyFontSize
+        || previewFields.bodyLineHeight !== fields.bodyLineHeight
+        || previewFields.headlineBodyOffset !== fields.headlineBodyOffset
+      );
+
+      if (!changes.length && !guardrailChanged) {
         setAutoLayoutSummary(payload.summary || 'A IA não encontrou nenhuma alteração útil dentro das propriedades liberadas nesta versão.');
         setAutoLayoutDetail(`0 alterações retornadas pela IA.${payload.meta?.backendVersion || payload.backendVersion ? ` Backend ${payload.meta?.backendVersion ?? payload.backendVersion}.` : ''}`);
         setAutoLayoutState('preview');
@@ -479,9 +486,16 @@ export default function SmPostEditor() {
       }
 
       setAutoLayoutChanges(changes);
-      setAutoLayoutSummary(payload.summary || 'Sugestão de Auto Layout pronta.');
-      setAutoLayoutDetail([payload.usage?.total_tokens ? `${payload.usage.total_tokens} tokens usados` : 'Resposta da IA recebida', payload.meta?.model ? `modelo ${payload.meta.model}` : '', payload.meta?.backendVersion || payload.backendVersion ? `backend ${payload.meta?.backendVersion ?? payload.backendVersion}` : ''].filter(Boolean).join(' · '));
-      setAutoLayoutPreviewFields(applyAutoLayoutChanges(fields, changes, autoLayoutMode));
+      setAutoLayoutSummary(payload.summary || (guardrailChanged
+        ? 'A composição recebeu ajustes mínimos de legibilidade e proximidade.'
+        : 'Sugestão de Auto Layout pronta.'));
+      setAutoLayoutDetail([
+        payload.usage?.total_tokens ? `${payload.usage.total_tokens} tokens usados` : 'Resposta da IA recebida',
+        guardrailChanged ? 'guardrails de legibilidade aplicados' : '',
+        payload.meta?.model ? `modelo ${payload.meta.model}` : '',
+        payload.meta?.backendVersion || payload.backendVersion ? `backend ${payload.meta?.backendVersion ?? payload.backendVersion}` : '',
+      ].filter(Boolean).join(' · '));
+      setAutoLayoutPreviewFields(previewFields);
       setAutoLayoutState('preview');
     } catch (autoLayoutError) {
       const message = autoLayoutError instanceof Error ? autoLayoutError.message : 'Falha ao gerar Auto Layout.';
