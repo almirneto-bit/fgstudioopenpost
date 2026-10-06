@@ -204,3 +204,29 @@ Foi criado o `PROJECT_CONTEXT.md` como fonte oficial de contexto e checklist ant
   - painel lateral continua sincronizado e disponível.
 - A prévia do Auto Layout também aplica guardrails de legibilidade mesmo quando a IA não propõe mudanças suficientes.
 - UI identificada como `v08-beta`.
+
+
+## v08-beta.1 — TextGroup real + perfis por template (2026-10-06)
+
+- Criado um grupo de texto real com offsets próprios:
+  - `textGroupOffsetX`;
+  - `textGroupOffsetY`.
+- Headline e body agora podem ser reposicionados juntos sem perder a relação interna.
+- Adicionados controles de largura:
+  - `headlineWidth`;
+  - `bodyWidth`.
+- Mudanças de largura preservam o eixo original do template:
+  - esquerda mantém borda esquerda;
+  - centro mantém centro;
+  - direita mantém borda direita.
+- Adicionados perfis específicos para cada template com:
+  - faixa horizontal/vertical segura do grupo;
+  - largura recomendada de headline;
+  - largura recomendada de body;
+  - body mínimo;
+  - faixa preferencial de proximidade headline/body.
+- Auto Layout passa a receber e controlar os novos parâmetros.
+- Guardrails clampam sugestões da IA aos limites de cada template.
+- Layout Post 9 também passou a respeitar grupo de texto e largura de body.
+- Projetos antigos continuam compatíveis via normalização automática.
+- UI identificada como `v08-beta.1`.
