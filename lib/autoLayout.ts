@@ -4,7 +4,7 @@ import {
   SAFE_MARGIN,
   SM_POST_LAYOUTS,
   type SmPostFields,
-} from '@/lib/smPostTemplate';
+} from './smPostTemplate';
 
 export type AutoLayoutProperty =
   | 'headlineFontSize'
