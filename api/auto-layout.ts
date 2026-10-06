@@ -88,7 +88,7 @@ async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: strin
 
   return fetch(
     process.env.KIE_AUTO_LAYOUT_ENDPOINT
-      || 'https://api.kie.ai/gemini-3-8-flash-openai/v1/chat/completions',
+      || 'https://api.kie.ai/gemini-3-7-flash-openai/v1/chat/completions',
     {
       method: 'POST',
       headers: {
@@ -104,7 +104,7 @@ async function callKie(apiKey: string, state: unknown, screenshotDataUrl?: strin
   );
 }
 
-export async function POST(request: Request) {
+async function handleAutoLayout(request: Request) {
   const apiKey = process.env.KIE_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -163,3 +163,25 @@ export async function POST(request: Request) {
     );
   }
 }
+
+
+export default {
+  async fetch(request: Request) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type',
+        },
+      });
+    }
+    if (request.method !== 'POST') {
+      return Response.json({ error: 'Método não permitido.' }, { status: 405 });
+    }
+    const response = await handleAutoLayout(request);
+    response.headers.set('Cache-Control', 'no-store');
+    return response;
+  },
+};
