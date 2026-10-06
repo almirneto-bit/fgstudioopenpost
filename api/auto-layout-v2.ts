@@ -15,7 +15,7 @@ type AutoLayoutProperty =
 const LIMITS: Record<AutoLayoutProperty, { min: number; max: number }> = {
   headlineFontSize: { min: 8, max: 250 },
   headlineLineHeight: { min: 0.5, max: 2 },
-  bodyFontSize: { min: 26, max: 250 },
+  bodyFontSize: { min: 30, max: 250 },
   bodyLineHeight: { min: 0.5, max: 2 },
   tagHeadlineOffset: { min: -180, max: 180 },
   headlineBodyOffset: { min: -360, max: 180 },
@@ -74,7 +74,7 @@ function promptFor(state: unknown) {
     'Não altere textos, cores, logos, assets ou o layout/template.',
     'Prefira poucas mudanças com impacto claro. Não mude uma propriedade se ela já estiver adequada.',
     'Em templates standard, trate headline e body como um único grupo visual.',
-    'Não reduza body abaixo de 26px.',
+    'Não reduza body abaixo de 30px.',
     'Evite distâncias excessivas entre headline e body; use headlineBodyOffset para aproximar ou afastar quando necessário.',
     'Preserve o eixo de alinhamento do template e mantenha textos importantes dentro da safe area.',
     'Use princípios de proximidade, hierarquia, alinhamento e espaço negativo para avaliar a composição.',
