@@ -467,13 +467,22 @@ function drawScene(
 
   if (layout.kind === 'post9') {
     if (layout.handle) {
-      drawParagraph(ctx, textForDisplay(fields.tag, fields.tagUppercase), layout.handle, {
+      const handleBox = {
+        ...layout.handle,
+        x: layout.handle.x + fields.textGroupOffsetX,
+        y: layout.handle.y + fields.textGroupOffsetY,
+      };
+      drawParagraph(ctx, textForDisplay(fields.tag, fields.tagUppercase), handleBox, {
         ...layout.handle,
         color: specialTextColor,
         fontSize: layout.handle.fontSize,
       });
     }
-    drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), layout.bodyText, {
+    const post9BodyBox = {
+      ...withAlignedWidth(layout.bodyText, fields.bodyWidth, fields.textGroupOffsetX),
+      y: layout.bodyText.y + fields.textGroupOffsetY,
+    };
+    drawParagraph(ctx, textForDisplay(fields.bodyText, fields.bodyUppercase), post9BodyBox, {
       ...layout.bodyText,
       fontSize: fields.bodyFontSize,
       lineHeight: fields.bodyLineHeight,
