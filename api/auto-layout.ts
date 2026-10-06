@@ -141,20 +141,90 @@ async function handleAutoLayout(request: Request) {
     }
 
     const payload = JSON.parse(raw) as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+      choices?: Array<{
+        message?: {
+          content?: string | Array<{ type?: string; text?: string }>;
+        };
+      }>;
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{
+            text?: string;
+            functionCall?: {
+              name?: string;
+              args?: unknown;
+            };
+          }>;
+        };
+      }>;
+      usage?: {
+        prompt_tokens?: number;
+        completion_tokens?: number;
+        total_tokens?: number;
+      };
+      usageMetadata?: {
+        promptTokenCount?: number;
+        candidatesTokenCount?: number;
+        totalTokenCount?: number;
+      };
+      credits_consumed?: number;
+      modelVersion?: string;
     };
-    const content = payload.choices?.[0]?.message?.content;
-    if (!content) throw new Error('A Kie não retornou conteúdo.');
 
-    const parsed = extractJson(content);
+    let modelContent: string | null = null;
+
+    const openAiContent = payload.choices?.[0]?.message?.content;
+    if (typeof openAiContent === 'string') {
+      modelContent = openAiContent;
+    } else if (Array.isArray(openAiContent)) {
+      const textParts = openAiContent
+        .map((part) => part?.text)
+        .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
+      if (textParts.length) modelContent = textParts.join('\n');
+    }
+
+    if (!modelContent) {
+      const parts = payload.candidates?.[0]?.content?.parts ?? [];
+      const textParts = parts
+        .map((part) => part?.text)
+        .filter((value): value is string => typeof value === 'string' && Boolean(value.trim()));
+
+      if (textParts.length) {
+        modelContent = textParts.join('\n');
+      } else {
+        const functionArgs = parts.find((part) => part?.functionCall?.args)?.functionCall?.args;
+        if (functionArgs != null) modelContent = JSON.stringify(functionArgs);
+      }
+    }
+
+    if (!modelContent) {
+      console.error('KIE_AUTO_LAYOUT_UNRECOGNIZED_RESPONSE', raw.slice(0, 2000));
+      throw new Error('A Kie respondeu, mas o conteúdo veio em um formato ainda não tratado.');
+    }
+
+    const parsed = extractJson(modelContent);
     const changes = sanitizeAutoLayoutChanges(parsed.changes);
+
+    const usage = payload.usage
+      ? payload.usage
+      : payload.usageMetadata
+        ? {
+            prompt_tokens: payload.usageMetadata.promptTokenCount,
+            completion_tokens: payload.usageMetadata.candidatesTokenCount,
+            total_tokens: payload.usageMetadata.totalTokenCount,
+          }
+        : null;
+
     return Response.json({
       summary: typeof parsed.summary === 'string'
         ? parsed.summary.trim().slice(0, 400)
         : 'Sugestão de Auto Layout pronta.',
       changes,
-      usage: payload.usage ?? null,
+      usage,
+      meta: {
+        model: payload.modelVersion ?? null,
+        creditsConsumed: payload.credits_consumed ?? null,
+      },
     });
   } catch (error) {
     return Response.json(
