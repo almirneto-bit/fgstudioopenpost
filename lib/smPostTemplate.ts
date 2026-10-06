@@ -138,8 +138,8 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
   classic: {
     id: 'classic',
     figmaNodeId: '271:2',
-    name: 'Clássico com tag',
-    shortName: 'Clássico',
+    name: 'Base · Clássico com tag',
+    shortName: 'Base · Clássico',
     kind: 'standard',
     headline: {
       x: 179, y: 946, width: 721, height: 249,
@@ -159,7 +159,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     },
   },
   'kanit-left': {
-    id: 'kanit-left', figmaNodeId: '277:3', name: 'Kanit à esquerda', shortName: 'Kanit E', kind: 'standard',
+    id: 'kanit-left', figmaNodeId: '277:3', name: 'Kanit · Esquerda', shortName: 'Kanit · E', kind: 'standard',
     headline: {
       x: 85, y: 755, width: 656, height: 414,
       align: 'left', color: '#FFFFFF', fontFamily: '"Kanit", sans-serif',
@@ -168,7 +168,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     bodyText: { x: 88, y: 1207, width: 689, height: 145, align: 'left', ...DEFAULT_BODY },
   },
   'kanit-right': {
-    id: 'kanit-right', figmaNodeId: '277:52', name: 'Kanit à direita', shortName: 'Kanit D', kind: 'standard',
+    id: 'kanit-right', figmaNodeId: '277:52', name: 'Kanit · Direita', shortName: 'Kanit · D', kind: 'standard',
     headline: {
       x: 336, y: 755, width: 656, height: 414,
       align: 'right', color: '#FFFFFF', fontFamily: '"Kanit", sans-serif',
@@ -177,7 +177,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     bodyText: { x: 303, y: 1207, width: 689, height: 145, align: 'right', ...DEFAULT_BODY },
   },
   'kanit-center': {
-    id: 'kanit-center', figmaNodeId: '277:84', name: 'Kanit central', shortName: 'Kanit C', kind: 'standard',
+    id: 'kanit-center', figmaNodeId: '277:84', name: 'Kanit · Centro', shortName: 'Kanit · C', kind: 'standard',
     headline: {
       x: 88, y: 936, width: 904, height: 248,
       align: 'center', color: '#FFFFFF', fontFamily: '"Kanit", sans-serif',
@@ -186,7 +186,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     bodyText: { x: 136, y: 1236, width: 808, height: 116, align: 'center', ...DEFAULT_BODY },
   },
   'vina-left': {
-    id: 'vina-left', figmaNodeId: '277:116', name: 'Vina à esquerda', shortName: 'Vina E', kind: 'standard',
+    id: 'vina-left', figmaNodeId: '277:116', name: 'Vina · Esquerda', shortName: 'Vina · E', kind: 'standard',
     headline: {
       x: 85, y: 666, width: 748, height: 512,
       align: 'left', color: '#FFFFFF', fontFamily: '"Vina Sans", sans-serif',
@@ -195,7 +195,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     bodyText: { x: 88, y: 1236, width: 808, height: 116, align: 'left', ...DEFAULT_BODY },
   },
   'vina-right': {
-    id: 'vina-right', figmaNodeId: '277:155', name: 'Vina à direita', shortName: 'Vina D', kind: 'standard',
+    id: 'vina-right', figmaNodeId: '277:155', name: 'Vina · Direita', shortName: 'Vina · D', kind: 'standard',
     headline: {
       x: 249, y: 666, width: 748, height: 512,
       align: 'right', color: '#FFFFFF', fontFamily: '"Vina Sans", sans-serif',
@@ -204,7 +204,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     bodyText: { x: 184, y: 1236, width: 808, height: 116, align: 'right', ...DEFAULT_BODY },
   },
   'post-7': {
-    id: 'post-7', figmaNodeId: '285:12', name: 'Instagram post 7', shortName: 'Post 7', kind: 'post7',
+    id: 'post-7', figmaNodeId: '285:12', name: 'Especial · Texto no topo', shortName: 'Especial · Topo', kind: 'post7',
     background: BRAND_ORANGE,
     media: { x: 0, y: 430, width: 1080, height: 1010, radius: { tl: 44, tr: 44, br: 0, bl: 0 } },
     headline: {
@@ -217,7 +217,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     logoSecondary: { x: 882, y: 1300, width: 110, height: 42, src: LOGO_SECONDARY_SRC },
   },
   'post-8': {
-    id: 'post-8', figmaNodeId: '285:50', name: 'Instagram post 8', shortName: 'Post 8', kind: 'post8',
+    id: 'post-8', figmaNodeId: '285:50', name: 'Especial · Texto na base', shortName: 'Especial · Base', kind: 'post8',
     background: BRAND_ORANGE,
     media: { x: 0, y: 0, width: 1080, height: 1010, radius: { tl: 0, tr: 0, br: 44, bl: 44 } },
     headline: {
@@ -230,7 +230,7 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
     logoSecondary: { x: 882, y: 99, width: 110, height: 42, src: LOGO_SECONDARY_SRC },
   },
   'post-9': {
-    id: 'post-9', figmaNodeId: '285:140', name: 'Instagram post 9', shortName: 'Post 9', kind: 'post9',
+    id: 'post-9', figmaNodeId: '285:140', name: 'Especial · Card de texto', shortName: 'Especial · Card', kind: 'post9',
     background: BRAND_ORANGE,
     media: { x: 0, y: 507, width: 1080, height: 933 },
     headline: { ...EMPTY_BOX },
@@ -253,7 +253,17 @@ export const SM_POST_LAYOUTS: Record<SmPostLayoutId, SmPostTemplate> = {
   },
 };
 
-export const SM_POST_LAYOUT_OPTIONS = Object.values(SM_POST_LAYOUTS);
+export const SM_POST_LAYOUT_OPTIONS = [
+  SM_POST_LAYOUTS.classic,
+  SM_POST_LAYOUTS['kanit-left'],
+  SM_POST_LAYOUTS['kanit-center'],
+  SM_POST_LAYOUTS['kanit-right'],
+  SM_POST_LAYOUTS['vina-left'],
+  SM_POST_LAYOUTS['vina-right'],
+  SM_POST_LAYOUTS['post-7'],
+  SM_POST_LAYOUTS['post-8'],
+  SM_POST_LAYOUTS['post-9'],
+];
 
 export type SmPostFields = {
   layoutId: SmPostLayoutId;
@@ -282,14 +292,10 @@ export type SmPostFields = {
   headlineFontSize: number;
   headlineLineHeight: number;
   tagHeadlineOffset: number;
-  textGroupOffsetX: number;
-  textGroupOffsetY: number;
-  headlineWidth: number;
   bodyText: string;
   bodyUppercase: boolean;
   bodyFontSize: number;
   bodyLineHeight: number;
-  bodyWidth: number;
   headlineBodyOffset: number;
 };
 
@@ -314,8 +320,8 @@ export function createDefaultFields(layoutId: SmPostLayoutId = 'classic'): SmPos
     colorOverlay: '#000000',
     colorOverlayOpacity: 5,
     noiseEnabled: false,
-    noiseIntensity: 35,
-    noiseSize: 4,
+    noiseIntensity: 30,
+    noiseSize: 1,
     tag: 'COMPETITIVO',
     tagUppercase: false,
     headline: 'Nas periferias, o game também é espaço de expressão, conexão e oportunidade.',
@@ -323,14 +329,10 @@ export function createDefaultFields(layoutId: SmPostLayoutId = 'classic'): SmPos
     headlineFontSize: layout.headline.fontSize,
     headlineLineHeight: layout.headline.lineHeight,
     tagHeadlineOffset: 0,
-    textGroupOffsetX: 0,
-    textGroupOffsetY: 0,
-    headlineWidth: layout.headline.width,
     bodyText: 'Os games se tornaram um espaço de encontro entre diferentes pessoas, histórias e referências.',
     bodyUppercase: false,
     bodyFontSize: layout.bodyText.fontSize,
     bodyLineHeight: layout.bodyText.lineHeight,
-    bodyWidth: layout.bodyText.width,
     headlineBodyOffset: 0,
   };
 
