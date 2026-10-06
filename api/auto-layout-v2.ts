@@ -1,4 +1,4 @@
-const AUTO_LAYOUT_BACKEND_VERSION = 'v2.1-function-call-2026-10-06';
+const AUTO_LAYOUT_BACKEND_VERSION = 'v2.2-dual-function-call-2026-10-06';
 
 type AutoLayoutProperty =
   | 'headlineFontSize'
@@ -191,6 +191,12 @@ async function handleAutoLayout(request: Request) {
       choices?: Array<{
         message?: {
           content?: string | Array<{ type?: string; text?: string }>;
+          tool_calls?: Array<{
+            function?: {
+              name?: string;
+              arguments?: string;
+            };
+          }>;
         };
       }>;
       candidates?: Array<{
@@ -246,23 +252,38 @@ async function handleAutoLayout(request: Request) {
 
     let parsed: { summary?: unknown; changes?: unknown } | null = null;
 
+    const openAiToolCall = payload.choices?.[0]?.message?.tool_calls?.find(
+      (call) => call?.function?.name === 'apply_auto_layout' && call?.function?.arguments,
+    );
+
+    if (openAiToolCall?.function?.arguments) {
+      try {
+        parsed = JSON.parse(openAiToolCall.function.arguments) as { summary?: unknown; changes?: unknown };
+      } catch {
+        console.error('KIE_AUTO_LAYOUT_INVALID_OPENAI_TOOL_ARGS', openAiToolCall.function.arguments.slice(0, 2000));
+      }
+    }
+
     const candidateParts = payload.candidates?.[0]?.content?.parts ?? [];
     const toolArgs = candidateParts.find(
       (part) => part?.functionCall?.name === 'apply_auto_layout' && part?.functionCall?.args != null,
     )?.functionCall?.args;
 
-    if (toolArgs && typeof toolArgs === 'object') {
+    if (!parsed && toolArgs && typeof toolArgs === 'object') {
       parsed = toolArgs as { summary?: unknown; changes?: unknown };
-    } else if (modelContent) {
+    } else if (!parsed && modelContent) {
       parsed = extractJson(modelContent);
     }
 
     if (!parsed) {
       console.error('KIE_AUTO_LAYOUT_UNRECOGNIZED_RESPONSE', raw.slice(0, 3000));
       const topLevelKeys = payload && typeof payload === 'object' ? Object.keys(payload).join(', ') : 'none';
+      const choiceMessageKeys = payload.choices?.[0]?.message
+        ? Object.keys(payload.choices[0].message ?? {}).join('+')
+        : 'none';
       const partKeys = candidateParts.map((part) => Object.keys(part ?? {}).join('+')).join(', ');
       throw new Error(
-        `A Kie respondeu sem texto nem function call reconhecível. Estrutura: [${topLevelKeys}] · parts: [${partKeys || 'none'}]`,
+        `A Kie respondeu sem texto nem function call reconhecível. Estrutura: [${topLevelKeys}] · message: [${choiceMessageKeys}] · parts: [${partKeys || 'none'}]`,
       );
     }
 
