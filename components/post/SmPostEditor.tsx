@@ -435,7 +435,7 @@ export default function SmPostEditor() {
         // O estado estruturado continua suficiente para o teste caso a captura não esteja disponível.
       }
 
-      const response = await fetch('/api/auto-layout', {
+      const response = await fetch('/api/auto-layout-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -451,11 +451,17 @@ export default function SmPostEditor() {
         summary?: string;
         changes?: unknown;
         usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null;
+        backendVersion?: string;
+        meta?: {
+          model?: string | null;
+          creditsConsumed?: number | null;
+          backendVersion?: string | null;
+        };
       } = {};
       try {
         payload = JSON.parse(raw) as typeof payload;
       } catch {
-        throw new Error(`A rota /api/auto-layout respondeu ${response.status}, mas não retornou JSON. Isso normalmente indica que a função server-side não está disponível neste deploy.`);
+        throw new Error(`A rota /api/auto-layout-v2 respondeu ${response.status}, mas não retornou JSON. Isso indica que o deploy ainda não contém a nova função.`);
       }
       if (!response.ok) {
         throw new Error([payload.error, payload.detail].filter(Boolean).join(' · ') || `Não foi possível gerar o Auto Layout (HTTP ${response.status}).`);
@@ -464,14 +470,14 @@ export default function SmPostEditor() {
       const changes = sanitizeAutoLayoutChanges(payload.changes);
       if (!changes.length) {
         setAutoLayoutSummary(payload.summary || 'A IA não encontrou nenhuma alteração útil dentro das propriedades liberadas nesta versão.');
-        setAutoLayoutDetail('0 alterações retornadas pela IA.');
+        setAutoLayoutDetail(`0 alterações retornadas pela IA.${payload.meta?.backendVersion || payload.backendVersion ? ` Backend ${payload.meta?.backendVersion ?? payload.backendVersion}.` : ''}`);
         setAutoLayoutState('preview');
         return;
       }
 
       setAutoLayoutChanges(changes);
       setAutoLayoutSummary(payload.summary || 'Sugestão de Auto Layout pronta.');
-      setAutoLayoutDetail(payload.usage?.total_tokens ? `${payload.usage.total_tokens} tokens usados nesta análise.` : 'Resposta da IA recebida com sucesso.');
+      setAutoLayoutDetail([payload.usage?.total_tokens ? `${payload.usage.total_tokens} tokens usados` : 'Resposta da IA recebida', payload.meta?.model ? `modelo ${payload.meta.model}` : '', payload.meta?.backendVersion || payload.backendVersion ? `backend ${payload.meta?.backendVersion ?? payload.backendVersion}` : ''].filter(Boolean).join(' · '));
       setAutoLayoutPreviewFields(applyAutoLayoutChanges(fields, changes));
       setAutoLayoutState('preview');
     } catch (autoLayoutError) {
@@ -591,7 +597,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v08-alpha</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v08-alpha.2</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
