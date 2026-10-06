@@ -230,3 +230,30 @@ Foi criado o `PROJECT_CONTEXT.md` como fonte oficial de contexto e checklist ant
 - Layout Post 9 também passou a respeitar grupo de texto e largura de body.
 - Projetos antigos continuam compatíveis via normalização automática.
 - UI identificada como `v08-beta.1`.
+
+
+## v08-beta.2 — Simplificação do Auto Layout e edição direta no canvas (2026-10-06)
+
+- Removidos os controles de grupo/largura de texto adicionados na beta.1.
+- Auto Layout passa a operar somente no modo Legibilidade, sem dropdown.
+- Guardrails de leitura:
+  - body mínimo de 30px nos layouts standard;
+  - body mínimo de 32px no card especial;
+  - proximidade headline/body limitada por template;
+  - preservação da estrutura original dos layouts.
+- Edição direta de texto refeita:
+  - um clique sobre headline, body, tag ou handle entra em edição;
+  - texto do canvas é temporariamente ocultado durante a edição para evitar duplicidade;
+  - editor usa o mesmo posicionamento, fonte, alinhamento e entrelinha da arte;
+  - clique fora ou Esc conclui a edição;
+  - boxes laterais continuam disponíveis, mas não são obrigatórios.
+- Noise padrão alterado para:
+  - Intensidade: 30%;
+  - Tamanho do grão: 01.
+- Layouts reorganizados visualmente em grupos:
+  - Base;
+  - Kanit;
+  - Vina;
+  - Especiais.
+- Layouts renomeados sem alterar IDs internos, preservando compatibilidade.
+- UI identificada como `v08-beta.2`.
