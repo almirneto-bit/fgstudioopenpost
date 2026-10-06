@@ -577,7 +577,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v07.1</small></h1>
+        <h1>FG Post Studio <small>Editor de carrossel · v08-alpha</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
