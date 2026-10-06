@@ -142,6 +142,7 @@ export default function SmPostEditor() {
   const [autoLayoutSummary, setAutoLayoutSummary] = useState('');
   const [autoLayoutChanges, setAutoLayoutChanges] = useState<AutoLayoutChange[]>([]);
   const [autoLayoutPreviewFields, setAutoLayoutPreviewFields] = useState<SmPostFields | null>(null);
+  const [autoLayoutDetail, setAutoLayoutDetail] = useState('');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -422,6 +423,7 @@ export default function SmPostEditor() {
     setAutoLayoutSummary('');
     setAutoLayoutChanges([]);
     setAutoLayoutPreviewFields(null);
+    setAutoLayoutDetail('');
     setError('');
 
     try {
@@ -442,30 +444,40 @@ export default function SmPostEditor() {
         }),
       });
 
-      const payload = await response.json() as {
+      const raw = await response.text();
+      let payload: {
         error?: string;
         detail?: string;
         summary?: string;
         changes?: unknown;
-      };
+        usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number } | null;
+      } = {};
+      try {
+        payload = JSON.parse(raw) as typeof payload;
+      } catch {
+        throw new Error(`A rota /api/auto-layout respondeu ${response.status}, mas não retornou JSON. Isso normalmente indica que a função server-side não está disponível neste deploy.`);
+      }
       if (!response.ok) {
-        throw new Error(payload.error || 'Não foi possível gerar o Auto Layout.');
+        throw new Error([payload.error, payload.detail].filter(Boolean).join(' · ') || `Não foi possível gerar o Auto Layout (HTTP ${response.status}).`);
       }
 
       const changes = sanitizeAutoLayoutChanges(payload.changes);
       if (!changes.length) {
-        setAutoLayoutSummary(payload.summary || 'A composição atual já está equilibrada dentro das regras disponíveis.');
+        setAutoLayoutSummary(payload.summary || 'A IA não encontrou nenhuma alteração útil dentro das propriedades liberadas nesta versão.');
+        setAutoLayoutDetail('0 alterações retornadas pela IA.');
         setAutoLayoutState('preview');
         return;
       }
 
       setAutoLayoutChanges(changes);
       setAutoLayoutSummary(payload.summary || 'Sugestão de Auto Layout pronta.');
+      setAutoLayoutDetail(payload.usage?.total_tokens ? `${payload.usage.total_tokens} tokens usados nesta análise.` : 'Resposta da IA recebida com sucesso.');
       setAutoLayoutPreviewFields(applyAutoLayoutChanges(fields, changes));
       setAutoLayoutState('preview');
     } catch (autoLayoutError) {
       const message = autoLayoutError instanceof Error ? autoLayoutError.message : 'Falha ao gerar Auto Layout.';
       setAutoLayoutState('error');
+      setAutoLayoutDetail(message);
       setError(`Auto Layout: ${message}`);
     }
   };
@@ -485,6 +497,7 @@ export default function SmPostEditor() {
     setAutoLayoutSummary('');
     setAutoLayoutChanges([]);
     setAutoLayoutPreviewFields(null);
+    setAutoLayoutDetail('');
   };
 
   const discardAutoLayout = () => {
@@ -492,6 +505,7 @@ export default function SmPostEditor() {
     setAutoLayoutSummary('');
     setAutoLayoutChanges([]);
     setAutoLayoutPreviewFields(null);
+    setAutoLayoutDetail('');
   };
 
   const exportCurrent = async () => {
@@ -732,14 +746,27 @@ export default function SmPostEditor() {
               </button>
             </div>
 
+            {autoLayoutState === 'error' && (
+              <div className="sm-post-auto-layout-preview is-error">
+                <div>
+                  <strong>Auto Layout não executado</strong>
+                  <p>{autoLayoutDetail || 'A chamada para a IA falhou.'}</p>
+                  <small>Nenhuma alteração foi feita no layout.</small>
+                </div>
+              </div>
+            )}
+
             {autoLayoutState === 'preview' && (
               <div className="sm-post-auto-layout-preview">
                 <div>
                   <strong>Prévia do Auto Layout</strong>
                   <p>{autoLayoutSummary}</p>
-                  {autoLayoutChanges.length > 0 && (
-                    <small>{autoLayoutChanges.length} {autoLayoutChanges.length === 1 ? 'ajuste sugerido' : 'ajustes sugeridos'} · nada foi salvo ainda.</small>
-                  )}
+                  <small>
+                    {autoLayoutChanges.length > 0
+                      ? `${autoLayoutChanges.length} ${autoLayoutChanges.length === 1 ? 'ajuste sugerido' : 'ajustes sugeridos'} · nada foi salvo ainda.`
+                      : 'Nenhum ajuste aplicado.'}
+                    {autoLayoutDetail ? ` · ${autoLayoutDetail}` : ''}
+                  </small>
                 </div>
                 <div className="sm-post-auto-layout-actions">
                   <button type="button" onClick={discardAutoLayout}>Descartar</button>
