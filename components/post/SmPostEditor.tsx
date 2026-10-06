@@ -118,6 +118,7 @@ export default function SmPostEditor() {
   const [videoPreview, setVideoPreview] = useState<VideoPreviewState>(EMPTY_VIDEO_PREVIEW);
   const [saveState, setSaveState] = useState<'loading' | 'saved' | 'saving' | 'error'>('loading');
   const [cloudSaveState, setCloudSaveState] = useState<CloudSaveState>('not_saved');
+  const [cloudErrorDetail, setCloudErrorDetail] = useState('');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -338,6 +339,7 @@ export default function SmPostEditor() {
   const saveToHistory = async () => {
     if (!project || cloudSaveState === 'saving') return;
     setCloudSaveState('saving');
+    setCloudErrorDetail('');
     try {
       await saveCloudProject(project);
       const recent = await listCloudProjects();
@@ -346,8 +348,23 @@ export default function SmPostEditor() {
       setError('');
     } catch (cloudError) {
       setCloudSaveState('error');
-      const detail = cloudError instanceof Error ? cloudError.message : String(cloudError);
-      setError(`Não foi possível salvar esta criação no histórico online. ${detail ? `Supabase: ${detail}` : ''} O autosave local continua ativo.`);
+
+      const supabaseError = cloudError as {
+        message?: string;
+        details?: string;
+        hint?: string;
+        code?: string;
+      };
+
+      const detail = [
+        supabaseError?.message,
+        supabaseError?.details,
+        supabaseError?.hint,
+        supabaseError?.code ? `Código: ${supabaseError.code}` : '',
+      ].filter(Boolean).join(' · ') || (cloudError instanceof Error ? cloudError.message : String(cloudError));
+
+      setCloudErrorDetail(detail);
+      setError(`Não foi possível salvar esta criação no histórico online. Supabase: ${detail}. O autosave local continua ativo.`);
     }
   };
 
@@ -517,7 +534,7 @@ export default function SmPostEditor() {
             : cloudSaveState === 'dirty'
               ? 'Há alterações ainda não salvas no histórico.'
               : cloudSaveState === 'error'
-                ? 'Falha ao salvar online. Seu rascunho continua salvo localmente.'
+                ? `Falha ao salvar online. ${cloudErrorDetail ? `Supabase: ${cloudErrorDetail}` : 'Seu rascunho continua salvo localmente.'}`
                 : cloudSaveState === 'saving'
                   ? 'Enviando esta versão para o Supabase.'
                   : 'Rascunho local. Salve quando quiser adicionar ao histórico.'}
