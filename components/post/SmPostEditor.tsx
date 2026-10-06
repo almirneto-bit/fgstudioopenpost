@@ -464,7 +464,7 @@ export default function SmPostEditor() {
         throw new Error(`A rota /api/auto-layout-v2 respondeu ${response.status}, mas não retornou JSON. Isso indica que o deploy ainda não contém a nova função.`);
       }
       if (!response.ok) {
-        throw new Error([payload.error, payload.detail].filter(Boolean).join(' · ') || `Não foi possível gerar o Auto Layout (HTTP ${response.status}).`);
+        throw new Error([payload.error, payload.detail, payload.backendVersion ? `backend ${payload.backendVersion}` : ''].filter(Boolean).join(' · ') || `Não foi possível gerar o Auto Layout (HTTP ${response.status}).`);
       }
 
       const changes = sanitizeAutoLayoutChanges(payload.changes);
