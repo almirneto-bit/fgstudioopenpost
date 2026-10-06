@@ -23,6 +23,8 @@ export type AutoLayoutChange = {
   reason?: string;
 };
 
+export type AutoLayoutMode = 'balanced' | 'readability' | 'headline';
+
 export type AutoLayoutProposal = {
   summary: string;
   changes: AutoLayoutChange[];
@@ -88,16 +90,29 @@ export function sanitizeAutoLayoutChanges(input: unknown): AutoLayoutChange[] {
   return changes.slice(0, 9);
 }
 
-export function applyAutoLayoutChanges(fields: SmPostFields, input: unknown): SmPostFields {
+export function applyAutoLayoutChanges(
+  fields: SmPostFields,
+  input: unknown,
+  mode: AutoLayoutMode = 'balanced',
+): SmPostFields {
   const changes = sanitizeAutoLayoutChanges(input);
   const next = { ...fields };
   for (const change of changes) {
     (next as unknown as Record<string, number>)[change.property] = change.value;
   }
+
+  const layout = SM_POST_LAYOUTS[next.layoutId];
+  if (layout.kind === 'standard' && next.bodyText.trim()) {
+    const minBody = mode === 'readability' ? 30 : 26;
+    next.bodyFontSize = Math.max(minBody, next.bodyFontSize);
+    next.bodyLineHeight = Math.max(mode === 'readability' ? 1.05 : 0.95, next.bodyLineHeight);
+    next.headlineBodyOffset = clamp(next.headlineBodyOffset, -360, 100);
+  }
+
   return next;
 }
 
-export function buildAutoLayoutState(fields: SmPostFields, mode: 'balanced' | 'readability' | 'headline' = 'balanced') {
+export function buildAutoLayoutState(fields: SmPostFields, mode: AutoLayoutMode = 'balanced') {
   const layout = SM_POST_LAYOUTS[fields.layoutId];
   const bodyMinimum = layout.kind === 'standard' ? Math.max(26, layout.bodyText.minFontSize) : layout.bodyText.minFontSize;
   const layoutProfile = {
