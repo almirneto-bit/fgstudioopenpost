@@ -1,4 +1,4 @@
-const AUTO_LAYOUT_BACKEND_VERSION = 'v2.2-dual-function-call-2026-10-06';
+const AUTO_LAYOUT_BACKEND_VERSION = 'v2.3-kie-envelope-2026-10-06';
 
 type AutoLayoutProperty =
   | 'headlineFontSize'
@@ -187,7 +187,10 @@ async function handleAutoLayout(request: Request) {
       );
     }
 
-    const payload = JSON.parse(raw) as {
+    const outerPayload = JSON.parse(raw) as {
+      code?: number | string;
+      msg?: string;
+      data?: unknown;
       choices?: Array<{
         message?: {
           content?: string | Array<{ type?: string; text?: string }>;
@@ -223,6 +226,33 @@ async function handleAutoLayout(request: Request) {
       credits_consumed?: number;
       modelVersion?: string;
     };
+
+    let payload: typeof outerPayload = outerPayload;
+
+    if (outerPayload.data != null) {
+      if (typeof outerPayload.data === 'string') {
+        try {
+          payload = JSON.parse(outerPayload.data) as typeof outerPayload;
+        } catch {
+          payload = { ...outerPayload, data: outerPayload.data };
+        }
+      } else if (typeof outerPayload.data === 'object') {
+        payload = outerPayload.data as typeof outerPayload;
+      }
+    }
+
+    const outerCode = outerPayload.code == null ? null : Number(outerPayload.code);
+    const hasModelShape = Boolean(
+      payload.choices?.length
+      || payload.candidates?.length
+      || payload.modelVersion,
+    );
+
+    if (outerCode != null && outerCode !== 0 && outerCode !== 200 && !hasModelShape) {
+      throw new Error(
+        `Kie API: ${outerPayload.msg || 'erro retornado pela API'} (code ${outerPayload.code})`,
+      );
+    }
 
     let modelContent: string | null = null;
 
@@ -278,12 +308,13 @@ async function handleAutoLayout(request: Request) {
     if (!parsed) {
       console.error('KIE_AUTO_LAYOUT_UNRECOGNIZED_RESPONSE', raw.slice(0, 3000));
       const topLevelKeys = payload && typeof payload === 'object' ? Object.keys(payload).join(', ') : 'none';
+      const outerKeys = outerPayload && typeof outerPayload === 'object' ? Object.keys(outerPayload).join(', ') : 'none';
       const choiceMessageKeys = payload.choices?.[0]?.message
         ? Object.keys(payload.choices[0].message ?? {}).join('+')
         : 'none';
       const partKeys = candidateParts.map((part) => Object.keys(part ?? {}).join('+')).join(', ');
       throw new Error(
-        `A Kie respondeu sem texto nem function call reconhecível. Estrutura: [${topLevelKeys}] · message: [${choiceMessageKeys}] · parts: [${partKeys || 'none'}]`,
+        `A Kie respondeu sem texto nem function call reconhecível. Envelope: [${outerKeys}] · data: [${topLevelKeys}] · message: [${choiceMessageKeys}] · parts: [${partKeys || 'none'}] · msg: ${outerPayload.msg || 'n/a'} · code: ${outerPayload.code ?? 'n/a'}`,
       );
     }
 
@@ -308,6 +339,8 @@ async function handleAutoLayout(request: Request) {
       meta: {
         model: payload.modelVersion ?? null,
         creditsConsumed: payload.credits_consumed ?? null,
+        kieCode: outerPayload.code ?? null,
+        kieMessage: outerPayload.msg ?? null,
         backendVersion: AUTO_LAYOUT_BACKEND_VERSION,
       },
     });
