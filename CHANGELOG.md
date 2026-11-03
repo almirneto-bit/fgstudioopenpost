@@ -16,10 +16,16 @@ Histórico central de mudanças do FG Post Studio. As entradas são cumulativas 
 - API de projetos com escopo por usuário; API administrativa de metadados de templates.
 - Interface administrativa para renomear, categorizar, publicar e ordenar modelos.
 
+### Verificações automatizadas (03/11/2026)
+- GitHub Actions: `npm ci`, typecheck e build do Next.js aprovados na execução 41640774996.
+- Lockfile atualizado e versionado na branch, preservando a reprodutibilidade das dependências.
+- Deploy Preview #3 do Netlify publicado com estado `ready`. Ainda sem validação de login real e regras de usuário.
+- Fluxos de convite e recuperação de senha implementados após revisão do SDK Identity.
+- Auto Layout encaminhado por Netlify Function com autenticação antes do acesso à Kie.ai.
+
 ### Não concluído / não validado
 - Ativação do Identity no projeto Netlify; convites e definição de papéis.
-- Sincronização do `package-lock.json` com as dependências Netlify.
-- Build e testes do Deploy Preview com runtime real do Netlify.
+- Testes funcionais do Deploy Preview com contas de Identity reais e verificações de permissão.
 - Migração de registros do Supabase, mídias e histórico de projetos.
 - Pipeline de upload Netlify Blobs para vídeos grandes (limite de payload de Functions).
 - Integração do editor para salvar/abrir projetos exclusivamente no Netlify.
