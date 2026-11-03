@@ -791,6 +791,7 @@ export default function SmPostEditor() {
             ))}
           </div>
         </div>
+        <div className="sm-post-legal"><strong>FG Post Studio · Final Level Co.</strong><br />Ferramenta interna de uso exclusivo por pessoas autorizadas. © 2026 Final Level Co. Todos os direitos reservados.</div>
       </aside>
 
       <section className="sm-post-fields">
@@ -847,7 +848,7 @@ export default function SmPostEditor() {
             <label className="sm-post-field">
               <span>Layout</span>
               <select value={fields.layoutId} onChange={(event) => changeLayout(event.target.value as SmPostLayoutId)}>
-                {SM_POST_LAYOUT_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                {SM_POST_LAYOUT_OPTIONS.map((option) => <option key={option.id} value={option.id}>{LAYOUT_LABELS[option.id]}</option>)}
               </select>
             </label>
 
