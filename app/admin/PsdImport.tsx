@@ -137,8 +137,9 @@ export default function PsdImport() {
       const background=readFileAsImage(createBackground(current.source,editable),1080,.65);
       if(background.length>1_800_000||current.originalPreview.length>1_800_000)
         throw new Error('A prévia excedeu 1,8 MB. Reduza a complexidade do PSD.');
+      const thumbnail = readFileAsImage(getCompositeCanvas(current.source as Parameters<typeof getCompositeCanvas>[0]) as HTMLCanvasElement ?? createBackground(current.source,new Set()),240,.52);
       const record={
-        id:'psd-'+crypto.randomUUID(),title:title.trim(),category:category.trim(),
+        thumbnail,id:'psd-'+crypto.randomUUID(),title:title.trim(),category:category.trim(),
         width:current.width,height:current.height,sourceName:current.name,
         layerCount:current.layers.length,preview:current.originalPreview,background,
         slots:current.layers.filter(l=>l.editable),warnings:current.warnings,published:false,
