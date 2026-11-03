@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import JSZip from 'jszip';
 import LogoutButton from '@/components/LogoutButton';
+import { V09_DEMO_MODE } from '@/lib/v09DemoMode';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
   SAFE_MARGIN,
@@ -218,10 +219,12 @@ export default function SmPostEditor() {
       try {
         const localRecent = await listProjects();
         let cloudRecent: SmPostProject[] = [];
-        try {
-          cloudRecent = await listCloudProjects();
-        } catch {
-          // O editor continua disponível com o autosave local mesmo sem conexão com a nuvem.
+        if (!V09_DEMO_MODE) {
+          try {
+            cloudRecent = await listCloudProjects();
+          } catch {
+            // O editor continua disponível com o autosave local mesmo sem conexão com a nuvem.
+          }
         }
 
         const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
@@ -231,12 +234,12 @@ export default function SmPostEditor() {
 
         if (!cancelled) {
           setProject(nextProject);
-          setHistory(cloudRecent.map(normalizeProject));
-          setCloudSaveState(
+          setHistory((V09_DEMO_MODE ? localRecent : cloudRecent).map(normalizeProject));
+          setCloudSaveState(V09_DEMO_MODE ? 'not_saved' : (
             cloudVersion
               ? (nextProject.updatedAt > cloudVersion.updatedAt ? 'dirty' : 'saved')
-              : 'not_saved',
-          );
+              : 'not_saved'
+          ));
           localStorage.setItem(ACTIVE_PROJECT_KEY, nextProject.id);
           setSaveState('saved');
         }
@@ -440,9 +443,14 @@ export default function SmPostEditor() {
     setCloudSaveState('saving');
     setCloudErrorDetail('');
     try {
-      await saveCloudProject(project);
-      const recent = await listCloudProjects();
-      setHistory(recent.map(normalizeProject));
+      if (V09_DEMO_MODE) {
+        const recent = await saveProject(project);
+        setHistory(recent.map(normalizeProject));
+      } else {
+        await saveCloudProject(project);
+        const recent = await listCloudProjects();
+        setHistory(recent.map(normalizeProject));
+      }
       setCloudSaveState('saved');
       setError('');
     } catch (cloudError) {
@@ -463,7 +471,7 @@ export default function SmPostEditor() {
       ].filter(Boolean).join(' · ') || (cloudError instanceof Error ? cloudError.message : String(cloudError));
 
       setCloudErrorDetail(detail);
-      setError(`Não foi possível salvar esta criação no histórico online. Supabase: ${detail}. O autosave local continua ativo.`);
+      setError(V09_DEMO_MODE ? 'Não foi possível salvar o histórico de testes neste navegador.' : `Não foi possível salvar esta criação no histórico online. Supabase: ${detail}. O autosave local continua ativo.`);
     }
   };
 
@@ -471,7 +479,7 @@ export default function SmPostEditor() {
     if (!project || projectId === project.id) return;
     try {
       await saveProject(project);
-      const saved = await getCloudProject(projectId);
+      const saved = V09_DEMO_MODE ? await getProject(projectId) : await getCloudProject(projectId);
       if (!saved) return;
       const next = normalizeProject(saved);
       await saveProject(next);
@@ -681,7 +689,7 @@ export default function SmPostEditor() {
       <header className="sm-post-header">
         <h1>FG Post Studio <small>Editor de posts · V09 (prévia)</small></h1>
         <div className="sm-post-header-actions">
-          <LogoutButton />
+          {V09_DEMO_MODE ? <a className="sm-post-secondary-btn" href="/" style={{ textDecoration: 'none' }}>← Menu</a> : <LogoutButton />}
           <select
             className="sm-post-secondary-btn"
             value={exportFormat}
@@ -741,7 +749,8 @@ export default function SmPostEditor() {
           </span>
         </button>
         <small className={`sm-post-cloud-status is-${cloudSaveState}`}>
-          {cloudSaveState === 'saved'
+          {V09_DEMO_MODE ? 'Modo de testes: rascunhos salvos somente neste navegador (até 5 recentes). Não altera o histórico do Supabase.' : (
+          cloudSaveState === 'saved'
             ? 'Esta versão está salva online.'
             : cloudSaveState === 'dirty'
               ? 'Há alterações ainda não salvas no histórico.'
@@ -749,7 +758,7 @@ export default function SmPostEditor() {
                 ? `Falha ao salvar online. ${cloudErrorDetail ? `Supabase: ${cloudErrorDetail}` : 'Seu rascunho continua salvo localmente.'}`
                 : cloudSaveState === 'saving'
                   ? 'Enviando esta versão para o Supabase.'
-                  : 'Rascunho local. Salve quando quiser adicionar ao histórico.'}
+                  : 'Rascunho local. Salve quando quiser adicionar ao histórico.')}
         </small>
 
         <div className="sm-post-rail-section">
@@ -825,7 +834,7 @@ export default function SmPostEditor() {
         </div>
 
         <div className="sm-post-rail-section">
-          <div className="sm-post-section-head"><span>Histórico</span><small>{history.length}</small></div>
+          <div className="sm-post-section-head"><span>{V09_DEMO_MODE ? 'Recentes neste navegador' : 'Histórico'}</span><small>{history.length}</small></div>
           <div className="sm-post-history-list">
             {history.length === 0 && <p className="sm-post-hint">As criações salvas aparecerão aqui.</p>}
             {history.map((saved) => (
