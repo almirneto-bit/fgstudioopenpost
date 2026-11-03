@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import AdminOverview from './AdminOverview';
+import AdminProjects from './AdminProjects';
 import TemplateManager from './TemplateManager';
 import PsdImport from './PsdImport';
 import { FlIcon, type FlIconName } from '@/components/FlIcon';
@@ -37,7 +38,7 @@ export default function AdminWorkspace(){
         <div className="fl-admin-heading"><div><p className="fl-eyebrow">Biblioteca de camadas</p><h1 className="fl-title">Importador de PSDs</h1><p className="fl-muted">Transforme arquivos PSD em modelos publicados com campos controlados.</p></div></div>
         <PsdImport/>
       </div>}
-      {tab==='projects'&&<AdminOverview/>}
+      {tab==='projects'&&<AdminProjects/>}
       {tab==='settings'&&<div className="fl-panel">
         <p className="fl-eyebrow">Estado da plataforma</p>
         <h2 style={{fontSize:25,margin:'8px 0'}}>Configurações V09</h2>
