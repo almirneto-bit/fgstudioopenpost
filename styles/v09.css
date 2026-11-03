@@ -65,3 +65,37 @@ html, body { color-scheme: light; }
 .fl-input { width: 100%; background: #fff; padding: 12px; border-radius: 10px; border: 1px solid rgba(22,26,31,.16); }
 .fl-muted { color: #5F6875; }
 .fl-copyright { font-size: 11px; color: #5F6875; padding: 24px 0; }
+
+/* V09 — Landing page de seleção (preview com senha geral Netlify). */
+.fl-landing { display:flex; flex-direction:column; }
+.fl-brandlock {display:flex;align-items:center;gap:14px}
+.fl-brandlock strong {font-weight:800;font-size:16px;letter-spacing:-.02em}
+.fl-brandmark {display:grid;place-items:center;background:#8200FF;color:white;width:42px;height:42px;border-radius:12px;font-weight:900;font-size:19px;letter-spacing:-.09em}
+.fl-mode-tag {background:#F4EBFF;color:#6A00D1;padding:8px 13px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap}
+.fl-landing-main {width:min(100%,1040px);margin:auto;padding:clamp(44px,7vw,100px) 24px}
+.fl-landing-title {font-weight:850;font-size:clamp(38px,5.5vw,66px);letter-spacing:-.065em;line-height:1.06;margin:12px 0 18px}
+.fl-landing-title span {color:#8200FF}
+.fl-landing-lead {color:#5F6875;max-width:620px;font-size:16px;line-height:1.65;margin-bottom:40px}
+.fl-choice-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.fl-choice-card {background:#FBFCFF;display:flex;flex-direction:column;min-height:315px;border:1px solid rgba(22,26,31,.13);border-radius:20px;padding:28px;color:#161A1F;text-decoration:none;transition:transform .2s var(--fl-ease),border-color .2s var(--fl-ease),box-shadow .2s var(--fl-ease)}
+.fl-choice-card:hover,.fl-choice-card:focus-visible {transform:translateY(-3px);border-color:#8200FF;box-shadow:0 10px 30px rgba(130,0,255,.08);outline:none}
+.fl-choice-card h2 {margin:26px 0 8px;font-size:27px;letter-spacing:-.04em}
+.fl-choice-card p {color:#5F6875;font-size:14px;line-height:1.65;max-width:360px;margin:0}
+.fl-choice-number {display:flex;align-items:center;gap:12px;font-size:12px;color:#8200FF;font-weight:800}
+.fl-choice-number span {font-size:10px;letter-spacing:.08em;color:#5F6875}
+.fl-choice-icon {display:grid;place-items:center;background:#F4EBFF;color:#8200FF;border-radius:14px;width:52px;height:52px;font-size:30px;margin-top:28px}
+.fl-choice-cta {display:flex;align-items:center;justify-content:space-between;gap:14px;color:#6A00D1;font-size:13px;font-weight:800;margin-top:auto;padding-top:25px}
+.fl-choice-cta span {font-size:19px}
+.fl-demo-note {padding:17px 22px;border:1px solid #DFD4F5;background:#F8F4FF;border-radius:14px;margin-top:28px;color:#5C4576;font-size:13px;line-height:1.55}
+.fl-demo-note strong {color:#6A00D1}
+.fl-demo-note p {margin:6px 0 0}
+.fl-landing-footer {border-top:1px solid rgba(22,26,31,.09);text-align:center;color:#5F6875;font-size:11px;padding:20px}
+.fl-nav-back {font-size:12px;color:#6A00D1;text-decoration:none;font-weight:750;padding:10px 12px;border-radius:9px;background:#F4EBFF}
+.fl-nav-back:hover {background:#EBDAFF}
+@media (max-width:720px) {
+  .fl-choice-grid {grid-template-columns:1fr}
+  .fl-choice-card {min-height:275px;padding:23px}
+  .fl-mode-tag {font-size:9px}
+  .fl-landing-main {padding:48px 20px}
+  .fl-choice-card h2 {margin-top:18px}
+}
