@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminPage() {
   const user = await getUser();
   if (!user) redirect('/login');
-  if (!user.roles.includes('admin')) redirect('/sem-acesso');
+  if (!user.roles?.includes('admin')) redirect('/sem-acesso');
 
   return (
     <div className="fl-shell">
