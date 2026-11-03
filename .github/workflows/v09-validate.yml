@@ -1,0 +1,43 @@
+name: FG Post Studio V09 — Validar branch
+
+on:
+  push:
+    branches:
+      - feat/v09-netlify-admin-creator
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+      - name: Atualizar lock em ambiente de CI, sem modificar o repositório
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Instalar dependências usando lock atualizado
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build Next.js
+        run: npm run build
+        env:
+          STATIC_EXPORT: '0'
+      - name: Exportar lock reconstruído para sincronização futura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v09-package-lock
+          path: package-lock.json
+          if-no-files-found: ignore
+          retention-days: 7
