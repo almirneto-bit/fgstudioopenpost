@@ -32,6 +32,30 @@ export default function TemplateManager() {
     return () => { cancelled = true; };
   }, []);
 
+  async function reload() {
+    const response = await fetch('/.netlify/functions/templates?scope=admin',{cache:'no-store'});
+    if (!response.ok) throw new Error('Falha ao atualizar catálogo.');
+    const data = await response.json() as {templates:TemplateRow[]};
+    setTemplates(data.templates??[]);
+  }
+
+  async function action(id:string,verb:'duplicate'|'restore'|'delete') {
+    if(verb==='delete'&&!window.confirm('Excluir esta cópia do catálogo de testes?'))return;
+    setBusy(id);setMessage('');
+    try{
+      const method=verb==='duplicate'?'POST':verb==='delete'?'DELETE':'PATCH';
+      const payload=verb==='duplicate'?{sourceId:id}:verb==='restore'?{id,restore:true}:{id};
+      const response=await fetch('/.netlify/functions/templates',{
+        method,headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),
+      });
+      const result=await response.json().catch(()=>({})) as {error?:string};
+      if(!response.ok)throw new Error(result.error??'Operação indisponível.');
+      await reload();
+      setMessage(verb==='duplicate'?'Cópia criada como rascunho.':verb==='restore'?'Versão anterior restaurada.':'Cópia excluída.');
+    }catch(e){setMessage(e instanceof Error?e.message:'Erro ao atualizar template.');}
+    finally{setBusy('');}
+  }
+
   function patch(id: string, changes: Partial<TemplateRow>) {
     setTemplates((previous) => previous.map((item) => item.id === id ? { ...item, ...changes } : item));
   }
@@ -89,6 +113,12 @@ export default function TemplateManager() {
               <input type="checkbox" checked={item.is_published} onChange={(event) => patch(item.id, { is_published: event.target.checked })}/> Publicado
             </label>
             <button type="button" className="fl-button" disabled={busy === item.id} onClick={() => save(item)}>{busy === item.id ? 'Salvando...' : 'Salvar'}</button>
+            <div style={{gridColumn:'1 / -1',display:'flex',gap:9,justifyContent:'flex-end',flexWrap:'wrap'}}>
+              <span className="fl-muted" style={{fontSize:10,marginRight:'auto'}}>Revisão v{item.version} · {item.id.startsWith('preset-')?'Cópia':'Modelo original'}</span>
+              <button type="button" className="fl-nav-back" disabled={!!busy} onClick={() => void action(item.id,'duplicate')}>Duplicar</button>
+              {item.version>1&&<button type="button" className="fl-nav-back" disabled={!!busy} onClick={() => void action(item.id,'restore')}>Restaurar anterior</button>}
+              {item.id.startsWith('preset-')&&<button type="button" className="fl-nav-back" disabled={!!busy} onClick={() => void action(item.id,'delete')}>Excluir cópia</button>}
+            </div>
           </article>
         ))}
       </div>
