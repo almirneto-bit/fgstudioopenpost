@@ -43,12 +43,23 @@ type AutoLayoutState = 'idle' | 'loading' | 'preview' | 'error';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
+// Agrupamentos pelo resultado visual, não pelo nome técnico da fonte.
 const LAYOUT_GROUPS: Array<{ label: string; ids: SmPostLayoutId[] }> = [
-  { label: 'Base', ids: ['classic'] },
-  { label: 'Kanit', ids: ['kanit-left', 'kanit-center', 'kanit-right'] },
-  { label: 'Vina', ids: ['vina-left', 'vina-right'] },
-  { label: 'Especiais', ids: ['post-7', 'post-8', 'post-9'] },
+  { label: 'Título e imagem', ids: ['classic', 'kanit-left', 'kanit-right', 'vina-left', 'vina-right'] },
+  { label: 'Destaque central', ids: ['kanit-center', 'post-7', 'post-8'] },
+  { label: 'Comunicados', ids: ['post-9'] },
 ];
+const LAYOUT_LABELS: Record<SmPostLayoutId, string> = {
+  'classic': 'Clássico com tag',
+  'kanit-left': 'Texto à esquerda',
+  'kanit-center': 'Texto centralizado',
+  'kanit-right': 'Texto à direita',
+  'vina-left': 'Título à esquerda',
+  'vina-right': 'Título à direita',
+  'post-7': 'Imagem na base',
+  'post-8': 'Imagem no topo',
+  'post-9': 'Comunicado em card',
+};
 
 function formatVideoTime(seconds: number) {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
@@ -135,6 +146,7 @@ function formatHistoryDate(timestamp: number) {
 export default function SmPostEditor() {
   const [project, setProject] = useState<SmPostProject | null>(null);
   const [history, setHistory] = useState<SmPostProject[]>([]);
+  const [layoutSearch, setLayoutSearch] = useState('');
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('edit');
   const [error, setError] = useState('');
@@ -618,7 +630,7 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v08-beta.2</small></h1>
+        <h1>FG Post Studio <small>Editor de posts · V09 (prévia)</small></h1>
         <div className="sm-post-header-actions">
           <select
             className="sm-post-secondary-btn"
@@ -715,30 +727,48 @@ export default function SmPostEditor() {
 
         <div className="sm-post-rail-section">
           <div className="sm-post-section-head"><span>Adicionar layout</span></div>
+          <input
+            type="search"
+            className="sm-post-layout-search"
+            value={layoutSearch}
+            onChange={(event) => setLayoutSearch(event.target.value)}
+            placeholder="Buscar modelo..."
+            aria-label="Buscar modelo de post"
+          />
           <div className="sm-post-layout-groups">
-            {LAYOUT_GROUPS.map((group) => (
-              <div key={group.label} className="sm-post-layout-group">
-                <div className="sm-post-layout-group-title">{group.label}</div>
-                <div className="sm-post-layout-grid">
-                  {group.ids.map((layoutId) => {
-                    const option = SM_POST_LAYOUTS[layoutId];
-                    return (
-                      <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)}>
-                        <span
-                          className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}
-                        >
-                          {option.tag && <i />}
-                          <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
-                          <em />
-                        </span>
-                        <span>{option.shortName.replace(/^Base · |^Kanit · |^Vina · |^Especial · /, '')}</span>
-                        <small>+ adicionar</small>
-                      </button>
-                    );
-                  })}
+            {LAYOUT_GROUPS.map((group) => {
+              const query = layoutSearch.trim().toLocaleLowerCase('pt-BR');
+              const visibleIds = group.ids.filter((id) =>
+                !query || group.label.toLocaleLowerCase('pt-BR').includes(query) ||
+                LAYOUT_LABELS[id].toLocaleLowerCase('pt-BR').includes(query)
+              );
+              if (!visibleIds.length) return null;
+              return (
+                <div key={group.label} className="sm-post-layout-group">
+                  <div className="sm-post-layout-group-title">{group.label}</div>
+                  <div className="sm-post-layout-grid">
+                    {visibleIds.map((layoutId) => {
+                      const option = SM_POST_LAYOUTS[layoutId];
+                      return (
+                        <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)} title={LAYOUT_LABELS[layoutId]}>
+                          <span className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}>
+                            {option.tag && <i />}
+                            <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
+                            <em />
+                          </span>
+                          <span>{LAYOUT_LABELS[layoutId]}</span>
+                          <small>+ adicionar</small>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            {!LAYOUT_GROUPS.some((group) =>
+              group.label.toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')) ||
+              group.ids.some((id) => LAYOUT_LABELS[id].toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
+            ) && <p className="sm-post-hint">Nenhum modelo encontrado.</p>}
           </div>
         </div>
 
