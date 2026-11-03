@@ -61,6 +61,8 @@ const LAYOUT_LABELS: Record<SmPostLayoutId, string> = {
   'post-9': 'Comunicado em card',
 };
 
+type CatalogItem = { id: SmPostLayoutId; title: string; category: string; is_published: boolean; sort_order: number };
+
 function formatVideoTime(seconds: number) {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
   const minutes = Math.floor(safe / 60);
@@ -147,6 +149,8 @@ export default function SmPostEditor() {
   const [project, setProject] = useState<SmPostProject | null>(null);
   const [history, setHistory] = useState<SmPostProject[]>([]);
   const [layoutSearch, setLayoutSearch] = useState('');
+  const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  const [catalogError, setCatalogError] = useState('');
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('edit');
   const [error, setError] = useState('');
@@ -164,6 +168,48 @@ export default function SmPostEditor() {
   const [autoLayoutDetail, setAutoLayoutDetail] = useState('');
   const canvasRef = useRef<SmPostCanvasHandle>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetch('/.netlify/functions/templates', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Não foi possível carregar a biblioteca de templates.');
+        const data = await response.json() as { templates?: Array<Record<string, unknown>> };
+        if (!Array.isArray(data.templates)) throw new Error('Biblioteca de templates inválida.');
+        const valid = data.templates
+          .filter((row) => typeof row.id === 'string' && Object.prototype.hasOwnProperty.call(SM_POST_LAYOUTS, row.id))
+          .map((row) => ({
+            id: row.id as SmPostLayoutId,
+            title: String(row.title ?? LAYOUT_LABELS[row.id as SmPostLayoutId]),
+            category: String(row.category ?? 'Outros'),
+            is_published: row.is_published === true,
+            sort_order: Number(row.sort_order ?? 0),
+          }));
+        if (active) setCatalog(valid);
+      })
+      .catch((failure: unknown) => {
+        if (active) setCatalogError(failure instanceof Error ? failure.message : 'Biblioteca indisponível.');
+      });
+    return () => { active = false; };
+  }, []);
+
+  const catalogNames = useMemo(() => {
+    const result: Partial<Record<SmPostLayoutId, string>> = {};
+    (catalog ?? []).forEach((entry) => { result[entry.id] = entry.title; });
+    return result;
+  }, [catalog]);
+
+  const catalogGroups = useMemo(() => {
+    if (!catalog) return [] as Array<{ label: string; ids: SmPostLayoutId[] }>;
+    const groups = new Map<string, SmPostLayoutId[]>();
+    for (const item of [...catalog].filter((entry) => entry.is_published).sort((a, b) => a.sort_order - b.sort_order)) {
+      const label = item.category || 'Outros';
+      const ids = groups.get(label) ?? [];
+      ids.push(item.id);
+      groups.set(label, ids);
+    }
+    return Array.from(groups, ([label, ids]) => ({ label, ids }));
+  }, [catalog]);
 
   useEffect(() => {
     let cancelled = false;
@@ -375,6 +421,8 @@ export default function SmPostEditor() {
     try {
       await saveProject(project);
       const next = createProject();
+      const firstAvailable = catalog?.find((entry) => entry.is_published)?.id;
+      if (firstAvailable) next.slides[0].fields = createDefaultFields(firstAvailable);
       setProject(next);
       setCloudSaveState('not_saved');
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
@@ -736,11 +784,11 @@ export default function SmPostEditor() {
             aria-label="Buscar modelo de post"
           />
           <div className="sm-post-layout-groups">
-            {LAYOUT_GROUPS.map((group) => {
+            {catalogGroups.map((group) => {
               const query = layoutSearch.trim().toLocaleLowerCase('pt-BR');
               const visibleIds = group.ids.filter((id) =>
                 !query || group.label.toLocaleLowerCase('pt-BR').includes(query) ||
-                LAYOUT_LABELS[id].toLocaleLowerCase('pt-BR').includes(query)
+                (catalogNames[id] ?? LAYOUT_LABELS[id]).toLocaleLowerCase('pt-BR').includes(query)
               );
               if (!visibleIds.length) return null;
               return (
@@ -750,13 +798,13 @@ export default function SmPostEditor() {
                     {visibleIds.map((layoutId) => {
                       const option = SM_POST_LAYOUTS[layoutId];
                       return (
-                        <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)} title={LAYOUT_LABELS[layoutId]}>
+                        <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)} title={catalogNames[layoutId] ?? LAYOUT_LABELS[layoutId]}>
                           <span className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}>
                             {option.tag && <i />}
                             <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
                             <em />
                           </span>
-                          <span>{LAYOUT_LABELS[layoutId]}</span>
+                          <span>{catalogNames[layoutId] ?? LAYOUT_LABELS[layoutId]}</span>
                           <small>+ adicionar</small>
                         </button>
                       );
@@ -765,9 +813,11 @@ export default function SmPostEditor() {
                 </div>
               );
             })}
-            {!LAYOUT_GROUPS.some((group) =>
+            {catalogError && <p className="sm-post-hint" role="alert">{catalogError}</p>}
+            {catalog === null && !catalogError && <p className="sm-post-hint">Carregando modelos...</p>}
+            {catalog !== null && !catalogGroups.some((group) =>
               group.label.toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')) ||
-              group.ids.some((id) => LAYOUT_LABELS[id].toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
+              group.ids.some((id) => (catalogNames[id] ?? LAYOUT_LABELS[id]).toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
             ) && <p className="sm-post-hint">Nenhum modelo encontrado.</p>}
           </div>
         </div>
@@ -848,7 +898,7 @@ export default function SmPostEditor() {
             <label className="sm-post-field">
               <span>Layout</span>
               <select value={fields.layoutId} onChange={(event) => changeLayout(event.target.value as SmPostLayoutId)}>
-                {SM_POST_LAYOUT_OPTIONS.map((option) => <option key={option.id} value={option.id}>{LAYOUT_LABELS[option.id]}</option>)}
+                {SM_POST_LAYOUT_OPTIONS.filter((option) => option.id === fields.layoutId || catalog?.some((entry) => entry.id === option.id && entry.is_published)).map((option) => <option key={option.id} value={option.id}>{catalogNames[option.id] ?? LAYOUT_LABELS[option.id]}</option>)}
               </select>
             </label>
 
