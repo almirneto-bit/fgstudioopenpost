@@ -11,5 +11,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Modo demonstracao APENAS em deploy previews. A versao principal nao recebe este valor.
+[context.deploy-preview.environment]
+  NEXT_PUBLIC_FG_V09_DEMO = "1"
+
 # A autenticação e autorização são verificadas no servidor.
 # Não adicionar fallback SPA /* -> /index.html que bypassaria o Next.js SSR.
