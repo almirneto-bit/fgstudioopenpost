@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "ag-psd": "^31.0.3",
     "@netlify/database": "^2.0.1",
     "@netlify/blobs": "^11.1.7",
     "@netlify/identity": "^2.0.0",
