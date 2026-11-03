@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import JSZip from 'jszip';
+import LogoutButton from '@/components/LogoutButton';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
   SAFE_MARGIN,
@@ -680,6 +681,7 @@ export default function SmPostEditor() {
       <header className="sm-post-header">
         <h1>FG Post Studio <small>Editor de posts · V09 (prévia)</small></h1>
         <div className="sm-post-header-actions">
+          <LogoutButton />
           <select
             className="sm-post-secondary-btn"
             value={exportFormat}
