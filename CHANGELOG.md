@@ -6,6 +6,30 @@ Histórico central de mudanças do FG Post Studio. As entradas são cumulativas 
 
 **Branch:** `feat/v09-netlify-admin-creator` — **não publicado em produção**.
 
+### V09 · Painel de gestão, dashboard e PSD (03/11/2026)
+**Situação:** Código implementado na branch de testes, GitHub Actions aprovado (run 41660553228), Deploy Preview do Netlify com status **success**. **Não é validação visual do PSD nem migração do histórico antigo.**
+
+- Criada área de Administração com navegação: Visão geral, Templates, Importar PSD, Criações e Configurações.
+- Dashboard conectado a eventos reais emitidos no preview: criações, salvamentos, exportações, formato, projetos e modelos usados. Dados agregados são armazenados no Netlify Blobs específico deste deploy.
+- Dashboard mostra aviso obrigatório de que números são parciais: o histórico antigo do Supabase não foi migrado.
+- Importador PSD beta com biblioteca `ag-psd`: leitura do composite, inspeção de camadas/grupos, seleção de textos e imagens editáveis, criação de rascunho, publicação/despublicação e exclusão.
+- Preview PSD importado e respectiva composição de base rasterizada são armazenados na biblioteca temporária. O PSD original não é armazenado no servidor nesta etapa.
+- Editor de criação para PSD publicado em `/criar/psd/[id]` com campos liberados e exportação PNG. A tecnologia ainda não garante fidelidade para máscaras, filtros, tipografia específica, smart objects e blending.
+- Biblioteca de PSDs publicados integrada ao editor de posts com miniaturas.
+- Templates nativos podem ser duplicados em presets com rótulo/categoria próprios, despublicados, excluídos (cópias) e restaurados para última revisão no preview.
+- Preservada a engine original dos nove layouts, bem como exportações PNG, GIF, MP4 e ZIP e histórico local (ainda sem teste manual de regressão desta etapa).
+- Importados os assets oficiais `branding/final-level/brand.json`, `tokens.json`, `tokens.css`, `fl-icons.json` (442 ícones). Componente SVG de ícones usado no menu e administração.
+- Tema claro permanece padrão, e o modo de demonstração continua acessível somente com senha geral do Netlify.
+- Nenhuma alteração na `main`, nenhum dado Supabase apagado ou migrado.
+
+**Bloqueadores para considerar V09 completa:**
+1. Testar o PSD real `FG_INST_Template_Lettering_1-7.psd` (não localizado como arquivo anexado nesta sessão).
+2. Testar visualmente renderização e exportações com imagens, fontes, efeitos e smart objects.
+3. Conectar o histórico compartilhado ao Netlify Database, migrar registros + mídias do Supabase e validar recuperação.
+4. Construir upload seguro de vídeos grandes para Netlify Blobs.
+5. Habilitar contas Identity com papéis admin/creator quando for retomada esta prioridade.
+6. Testes de funcionamento ponta a ponta no Deploy Preview com senha geral.
+
 ### V09 · Modo de demonstração com senha única (03/11/2026)
 - Decisão do usuário: adiar as contas individuais e a atribuição dos papéis Identity para outra etapa.
 - A senha geral do Netlify permanece ativa em todo o site e é o único acesso exigido no Deploy Preview.
