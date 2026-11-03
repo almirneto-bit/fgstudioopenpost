@@ -58,8 +58,9 @@ function collectLayers(layers: LayerLike[], prefix = ''): LayerEntry[] {
 function createBackground(doc: PsdDocument, editable: Set<string>): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width=doc.width; canvas.height=doc.height;
-  const ctx=canvas.getContext('2d');
-  if(!ctx) throw new Error('Canvas indisponível.');
+  const context=canvas.getContext('2d');
+  if(!context) throw new Error('Canvas indisponível.');
+  const ctx: CanvasRenderingContext2D = context;
   // Combina as camadas não-editáveis em ordem inferior -> superior.
   function draw(layers:LayerLike[],prefix=''){
     for(let i=layers.length-1;i>=0;i--){
