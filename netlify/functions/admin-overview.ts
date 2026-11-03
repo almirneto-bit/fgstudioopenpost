@@ -75,7 +75,7 @@ export default async function adminOverview(request:Request,context:Context){
         drafts:allTemplates.filter(t=>!t.is_published).length+psds.filter(p=>!p.published).length,
       },
       formats,days,templatesUsage,
-      projects:creations.slice(0,300),
+      projects:creations.slice(0,1000),
       recent:items.slice(0,35),
     },{headers:{'Cache-Control':'no-store'}});
   }catch(e){
