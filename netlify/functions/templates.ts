@@ -25,6 +25,12 @@ const DEFAULT_DEMO_TEMPLATES: DemoRow[] = [
   template_definition: { layoutId: String(id) },
 }));
 function demoStore() { return getDeployStore('fgstudio-v09-demo-templates'); }
+function versionKey(id:string) {return 'versions:'+id;}
+async function rememberVersion(row:DemoRow) {
+  const key=versionKey(row.id);
+  const versions=await demoStore().get(key,{type:'json'}) as DemoRow[]|null;
+  await demoStore().setJSON(key,[row,...(versions??[])].slice(0,20));
+}
 async function readDemoTemplates(): Promise<DemoRow[]> {
   const stored = await demoStore().get('catalog', { type: 'json' }) as DemoRow[] | null;
   return Array.isArray(stored) ? stored : DEFAULT_DEMO_TEMPLATES;
@@ -63,7 +69,14 @@ export default async function templates(request: Request, context: Context) {
     return Response.json({ templates }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
-  if (request.method !== 'PATCH') return new Response('Método não permitido', { status: 405 });
+  if (demo && request.method === 'GET' && new URL(request.url).searchParams.has('versions')) {
+    const id = new URL(request.url).searchParams.get('versions') ?? '';
+    if(!/^[a-z0-9-]{2,90}$/.test(id))return Response.json({error:'ID inválido'},{status:400});
+    const versions=await demoStore().get(versionKey(id),{type:'json'}) as DemoRow[]|null;
+    return Response.json({ versions:versions??[] }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  if (!['PATCH','POST','DELETE'].includes(request.method)) return new Response('Método não permitido', { status: 405 });
   if (!isAdmin) return Response.json({ error: 'Somente administradores podem editar templates' }, { status: 403 });
   if (request.headers.get('origin') !== new URL(request.url).origin)
     return Response.json({ error: 'Origem não permitida' }, { status: 403 });
@@ -71,6 +84,39 @@ export default async function templates(request: Request, context: Context) {
   try { payload = await request.json(); } catch { return Response.json({ error: 'JSON inválido' }, { status: 400 }); }
   if (!payload || typeof payload !== 'object') return Response.json({ error: 'Dados inválidos' }, { status: 400 });
   const data = payload as Record<string, unknown>;
+  if (demo && request.method === 'POST') {
+    const sourceId=String(data.sourceId??'');
+    const source=(await readDemoTemplates()).find(item=>item.id===sourceId);
+    if(!source)return Response.json({error:'Modelo de origem não encontrado'}, {status:404});
+    const duplicate:DemoRow={...source,id:'preset-'+crypto.randomUUID(),slug:'preset-'+Date.now(),
+      title:('Cópia de '+source.title).slice(0,100),version:1,is_published:false,sort_order:source.sort_order+1};
+    const all=await readDemoTemplates();
+    await demoStore().setJSON('catalog',[...all,duplicate]);
+    return Response.json({template:duplicate},{status:201});
+  }
+  if (demo && request.method === 'DELETE') {
+    const id=String(data.id??'');
+    if(!id.startsWith('preset-'))return Response.json({error:'Somente cópias podem ser excluídas; despublique modelos originais.'},{status:400});
+    const all=await readDemoTemplates();
+    const selected=all.find(item=>item.id===id);
+    if(!selected)return Response.json({error:'Modelo não encontrado'},{status:404});
+    await rememberVersion(selected);
+    await demoStore().setJSON('catalog',all.filter(t=>t.id!==id));
+    return Response.json({ok:true});
+  }
+  if(demo && request.method==='PATCH' && data.restore===true) {
+    const id=String(data.id??'');
+    const all=await readDemoTemplates();
+    const index=all.findIndex(t=>t.id===id);
+    if(index<0)return Response.json({error:'Modelo não encontrado'}, {status:404});
+    const versions=await demoStore().get(versionKey(id),{type:'json'}) as DemoRow[]|null;
+    if(!versions?.length)return Response.json({error:'Nenhuma versão anterior disponível'},{status:404});
+    const restored={...versions[0],version:all[index].version+1};
+    const next=[...all]; next[index]=restored;
+    await demoStore().setJSON('catalog',next);
+    await demoStore().setJSON(versionKey(id),versions.slice(1));
+    return Response.json({template:restored});
+  }
   if (typeof data.id !== 'string' || !/^[a-z0-9-]{2,80}$/.test(data.id))
     return Response.json({ error: 'ID inválido' }, { status: 400 });
   if (typeof data.title !== 'string' || !data.title.trim() || data.title.length > 100)
@@ -98,6 +144,7 @@ export default async function templates(request: Request, context: Context) {
       };
       const updated = [...current];
       updated[index] = changed;
+      await rememberVersion(original);
       await demoStore().setJSON('catalog', updated);
       return Response.json({ template: changed, demo: true }, { headers: { 'Cache-Control': 'no-store' } });
     } catch {
