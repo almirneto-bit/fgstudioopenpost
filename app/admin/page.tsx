@@ -1,6 +1,6 @@
 import { getUser } from '@netlify/identity';
 import { V09_DEMO_MODE } from '@/lib/v09DemoMode';
-import TemplateManager from './TemplateManager';
+import AdminWorkspace from './AdminWorkspace';
 import LogoutButton from '@/components/LogoutButton';
 import { redirect } from 'next/navigation';
 
@@ -26,12 +26,7 @@ export default async function AdminPage() {
           {!V09_DEMO_MODE && <LogoutButton />}
         </div>
       </header>
-      <main className="fl-main">
-        <h1 className="fl-title">Gerenciamento de templates</h1>
-        <p className="fl-muted">Catálogo de layouts oficiais. Nesta fase, nomes, categorias, ordem e publicação podem ser editados; novas estruturas de PSD e edição de camadas ficam para a próxima etapa.</p>
-        {V09_DEMO_MODE && <div className="fl-demo-note" style={{ marginTop: 22 }}><strong>Modo de demonstração</strong><p>Qualquer pessoa com a senha geral do Netlify pode administrar estes modelos temporários. As alterações não afetam o catálogo definitivo nem o Supabase e podem ser perdidas após outro deploy.</p></div>}
-        <TemplateManager />
-      </main>
+      <AdminWorkspace />
     </div>
   );
 }
