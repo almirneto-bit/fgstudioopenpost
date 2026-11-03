@@ -23,6 +23,24 @@
 - **Restauração posterior:** após homologar, remover flag de demo do preview e retomar etapas de Netlify Identity com perfis `admin`/`creator`.
 - **Validação:** CI da branch aprovado, status de Deploy Preview aprovado; testes interativos ainda a realizar.
 
+## Progresso da ampliação administrativa (03/11/2026)
+- [x] Dashboards de indicadores do preview: cartões, 7 dias, formatos, ranking de modelos, projetos e atividade recente.
+- [x] Telemetria da prévia: criação, salvar e exportar; agregados isolados em Netlify Blobs por deploy.
+- [x] Importador PSD beta: leitura por `ag-psd`, layers, seleção de campos, composite, rascunho e publicação.
+- [x] Editor de PSD com texto/imagem editáveis e PNG exportado, sujeito à comparação visual.
+- [x] Presets nativos duplicados; alterar rótulo/categoria/ordem; despublicar; remover cópias; restaurar uma versão anterior.
+- [x] Assets `brand.json`, `tokens.json`, `tokens.css`, `fl-icons.json` versionados e ícones aplicados em navegação.
+- [x] GitHub Actions typecheck/build aprovado (execução 41660553228).
+- [ ] Teste manual no PSD real de sete lettering; arquivo PSD não está acessível entre os anexos desta sessão.
+- [ ] Validar visualmente o PSD resultante: smart objects, máscaras, filtros, fontes e blending.
+- [ ] Migrar o banco e mídias do Supabase (sem credenciais/dump nessa sessão).
+- [ ] Completar histórico e dashboard com registros legados reais.
+- [ ] Completar armazenamento de arquivos grandes no Netlify Blobs e integração definitiva com Netlify Database.
+- [ ] Testar todos os recursos originais de vídeo, áudio e exportação no navegador.
+- [ ] Reativar contas individuais quando o usuário autorizar.
+
+**Importante:** os números do painel atual refletem somente esta prévia, não o total histórico. Dados do preview podem reiniciar a cada novo deploy. Os PSDs originais não são armazenados: fica o preview rasterizado e os metadados de camadas.
+
 ## Etapa futura: configuração manual do Identity (adiada pelo usuário)
 1. Abrir https://app.netlify.com/projects/fgpoststudio/identity e selecionar **Enable Identity**.
 2. Em Registration preferences, definir **Invite only** (nunca Open para esta ferramenta interna).
