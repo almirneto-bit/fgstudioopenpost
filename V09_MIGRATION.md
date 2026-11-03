@@ -24,9 +24,9 @@ A configuração do Identity é feita no dashboard do Netlify; não existe açã
 
 ## Etapa 2: pacotes e build
 1. Usar Node.js >= 22.13.
-2. Executar `npm install` para sincronizar `package.json` e `package-lock.json` (o lock atual já estava defasado em relação ao manifesto do projeto).
-3. Validar `npm run typecheck` e `npm run build`.
-4. Publicar somente como Deploy Preview e testar Identity nele (não funciona completamente com `netlify dev`).
+2. [CONCLUÍDO NA BRANCH] `package-lock.json` sincronizado pelo GitHub Actions, após instalação de todas as dependências.
+3. [CONCLUÍDO EM CI] Typecheck e build aprovados na execução GitHub Actions 41640774996.
+4. [DEPLOY PRONTO] Netlify Deploy Preview #3: https://deploy-preview-3--fgpoststudio.netlify.app — falta testar Identity nele (não funciona completamente com `netlify dev`).
 5. Validar que as tabelas e o seed são provisionados na base isolada do Deploy Preview.
 
 ## Etapa 3: migração de dados preservando histórico
