@@ -64,7 +64,7 @@ const LAYOUT_LABELS: Record<SmPostLayoutId, string> = {
   'post-9': 'Comunicado em card',
 };
 
-type CatalogItem = { id: SmPostLayoutId; title: string; category: string; is_published: boolean; sort_order: number };
+type CatalogItem = { id: SmPostLayoutId; templateId: string; title: string; category: string; is_published: boolean; sort_order: number };
 
 function formatVideoTime(seconds: number) {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
@@ -157,7 +157,7 @@ function trackV09Demo(kind: 'created'|'saved'|'exported', project: SmPostProject
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       kind, projectId: project.id, projectName: project.name, format,
-      slideCount: project.slides.length, templateId: project.slides[0]?.fields.layoutId ?? 'classic',
+      slideCount: project.slides.length, templateId: project.slides[0]?.fields.templatePresetId ?? project.slides[0]?.fields.layoutId ?? 'classic',
     }),
   }).catch(() => {});
 }
@@ -194,9 +194,11 @@ export default function SmPostEditor() {
         const data = await response.json() as { templates?: Array<Record<string, unknown>> };
         if (!Array.isArray(data.templates)) throw new Error('Biblioteca de templates inválida.');
         const valid = data.templates
-          .filter((row) => typeof row.id === 'string' && Object.prototype.hasOwnProperty.call(SM_POST_LAYOUTS, row.id))
+          .filter((row) => typeof row.id === 'string' && typeof (row.template_definition as { layoutId?: unknown } | undefined)?.layoutId === 'string'
+            && Object.prototype.hasOwnProperty.call(SM_POST_LAYOUTS, (row.template_definition as { layoutId: string }).layoutId))
           .map((row) => ({
-            id: row.id as SmPostLayoutId,
+            id: (row.template_definition as { layoutId: SmPostLayoutId }).layoutId,
+            templateId: row.id as string,
             title: String(row.title ?? LAYOUT_LABELS[row.id as SmPostLayoutId]),
             category: String(row.category ?? 'Outros'),
             is_published: row.is_published === true,
@@ -217,15 +219,15 @@ export default function SmPostEditor() {
   }, [catalog]);
 
   const catalogGroups = useMemo(() => {
-    if (!catalog) return [] as Array<{ label: string; ids: SmPostLayoutId[] }>;
-    const groups = new Map<string, SmPostLayoutId[]>();
+    if (!catalog) return [] as Array<{ label: string; items: CatalogItem[] }>;
+    const groups = new Map<string, CatalogItem[]>();
     for (const item of [...catalog].filter((entry) => entry.is_published).sort((a, b) => a.sort_order - b.sort_order)) {
       const label = item.category || 'Outros';
-      const ids = groups.get(label) ?? [];
-      ids.push(item.id);
-      groups.set(label, ids);
+      const items = groups.get(label) ?? [];
+      items.push(item);
+      groups.set(label, items);
     }
-    return Array.from(groups, ([label, ids]) => ({ label, ids }));
+    return Array.from(groups, ([label, items]) => ({ label, items }));
   }, [catalog]);
 
   useEffect(() => {
@@ -363,8 +365,9 @@ export default function SmPostEditor() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const addSlide = (layoutId: SmPostLayoutId) => {
+  const addSlide = (layoutId: SmPostLayoutId, templatePresetId?: string) => {
     const slide = createSlide(layoutId);
+    slide.fields.templatePresetId = templatePresetId ?? layoutId;
     updateProject((current) => ({
       ...current,
       slides: [...current.slides, slide],
@@ -441,7 +444,7 @@ export default function SmPostEditor() {
       await saveProject(project);
       const next = createProject();
       const firstAvailable = catalog?.find((entry) => entry.is_published)?.id;
-      if (firstAvailable) next.slides[0].fields = createDefaultFields(firstAvailable);
+      if (firstAvailable) next.slides[0].fields = { ...createDefaultFields(firstAvailable), templatePresetId: catalog?.find((entry) => entry.id === firstAvailable && entry.is_published)?.templateId ?? firstAvailable };
       setProject(next);
       trackV09Demo('created', next);
       setCloudSaveState('not_saved');
@@ -816,25 +819,25 @@ export default function SmPostEditor() {
           <div className="sm-post-layout-groups">
             {catalogGroups.map((group) => {
               const query = layoutSearch.trim().toLocaleLowerCase('pt-BR');
-              const visibleIds = group.ids.filter((id) =>
+              const visibleItems = group.items.filter((item) =>
                 !query || group.label.toLocaleLowerCase('pt-BR').includes(query) ||
-                (catalogNames[id] ?? LAYOUT_LABELS[id]).toLocaleLowerCase('pt-BR').includes(query)
+                item.title.toLocaleLowerCase('pt-BR').includes(query)
               );
-              if (!visibleIds.length) return null;
+              if (!visibleItems.length) return null;
               return (
                 <div key={group.label} className="sm-post-layout-group">
                   <div className="sm-post-layout-group-title">{group.label}</div>
                   <div className="sm-post-layout-grid">
-                    {visibleIds.map((layoutId) => {
-                      const option = SM_POST_LAYOUTS[layoutId];
+                    {visibleItems.map((item) => {
+                      const option = SM_POST_LAYOUTS[item.id];
                       return (
-                        <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)} title={catalogNames[layoutId] ?? LAYOUT_LABELS[layoutId]}>
+                        <button key={item.templateId} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id,item.templateId)} title={item.title}>
                           <span className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}>
                             {option.tag && <i />}
                             <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
                             <em />
                           </span>
-                          <span>{catalogNames[layoutId] ?? LAYOUT_LABELS[layoutId]}</span>
+                          <span>{item.title}</span>
                           <small>+ adicionar</small>
                         </button>
                       );
@@ -847,7 +850,7 @@ export default function SmPostEditor() {
             {catalog === null && !catalogError && <p className="sm-post-hint">Carregando modelos...</p>}
             {catalog !== null && !catalogGroups.some((group) =>
               group.label.toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')) ||
-              group.ids.some((id) => (catalogNames[id] ?? LAYOUT_LABELS[id]).toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
+              group.items.some((item) => item.title.toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
             ) && <p className="sm-post-hint">Nenhum modelo encontrado.</p>}
           </div>
         </div>
