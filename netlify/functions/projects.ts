@@ -7,8 +7,8 @@ import type { Context } from '@netlify/functions';
 export default async function projects(request: Request, _context: Context) {
   const user = await getUser();
   if (!user) return Response.json({ error: 'Autenticação necessária' }, { status: 401 });
-  const isAdmin = user.roles.includes('admin');
-  if (!isAdmin && !user.roles.includes('creator')) return Response.json({ error: 'Sem permissão' }, { status: 403 });
+  const isAdmin = user.roles?.includes('admin');
+  if (!isAdmin && !user.roles?.includes('creator')) return Response.json({ error: 'Sem permissão' }, { status: 403 });
 
   const db = getDatabase();
   const url = new URL(request.url);
