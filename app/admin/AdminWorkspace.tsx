@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import AdminOverview from './AdminOverview';
 import AdminProjects from './AdminProjects';
+import AdminHealth from './AdminHealth';
 import TemplateManager from './TemplateManager';
 import PsdImport from './PsdImport';
 import { FlIcon, type FlIconName } from '@/components/FlIcon';
@@ -48,6 +49,7 @@ export default function AdminWorkspace(){
         <div className="fl-setting-row"><div><strong>Histórico anterior</strong><small>Supabase legado não migrado</small></div><span>Preservado</span></div>
         <div className="fl-setting-row"><div><strong>Dados desta prévia</strong><small>Blobs isolados por deploy e rascunhos IndexedDB</small></div><span>Temporários</span></div>
         <div className="fl-setting-row"><div><strong>Aparência</strong><small>Modo claro · Final Level Co.</small></div><span>Ativo</span></div>
+        <AdminHealth />
         <p className="fl-demo-note">Os dois painéis compartilham a senha geral durante os testes. Quando os acessos individuais forem ativados, todas as ações administrativas passarão a exigir o papel Admin.</p>
       </div>}
     </div>
