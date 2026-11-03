@@ -25,10 +25,10 @@ function wrapText(ctx:CanvasRenderingContext2D,text:string,maxWidth:number):stri
   }
   return lines;
 }
-function track(templateId:string,format:string){
+function track(templateId:string,projectId:string,projectName:string,kind:'created'|'exported',format=''){
   void fetch('/.netlify/functions/demo-activity',{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({type:'export',templateId,format,projectName:'PSD · '+templateId,slideCount:1}),
+    body:JSON.stringify({kind,templateId,projectId,format,projectName,slideCount:1}),
   }).catch(()=>{});
 }
 
@@ -40,6 +40,7 @@ export default function PsdCreator({id}:{id:string}){
   const [error,setError]=useState('');
   const [loading,setLoading]=useState(true);
   const canvasRef=useRef<HTMLCanvasElement|null>(null);
+  const projectIdRef=useRef<string>('');
   useEffect(()=>{
     let active=true;
     fetch('/.netlify/functions/psd-templates?id='+encodeURIComponent(id),{cache:'no-store'})
@@ -47,6 +48,10 @@ export default function PsdCreator({id}:{id:string}){
       .then(r=>{
         if(!active)return;
         setTemplate(r.template);
+        if (!projectIdRef.current) {
+          projectIdRef.current='project-'+crypto.randomUUID();
+          track(r.template.id,projectIdRef.current,'PSD · '+r.template.title,'created');
+        }
         setValues(Object.fromEntries(r.template.slots.filter(s=>s.kind==='text').map(s=>[s.id,s.defaultText??''])));
       })
       .catch(e=>{if(active)setError(e instanceof Error?e.message:'Erro ao abrir PSD.')})
@@ -54,16 +59,16 @@ export default function PsdCreator({id}:{id:string}){
     return()=>{active=false};
   },[id]);
 
-  const draw=useCallback(async()=>{
+  const draw=useCallback(async(forceOriginal=original)=>{
     const canvas=canvasRef.current;
     if(!canvas||!template)return;
     const ctx=canvas.getContext('2d');if(!ctx)return;
     canvas.width=template.width;canvas.height=template.height;
     const base=new Image();
-    base.src=original?template.preview:template.background;
+    base.src=forceOriginal?template.preview:template.background;
     await base.decode();
     ctx.drawImage(base,0,0,canvas.width,canvas.height);
-    if(original)return;
+    if(forceOriginal)return;
     for(const slot of template.slots.filter(s=>s.editable)){
       if(slot.kind==='image'){
         const source=images[slot.id];
@@ -101,15 +106,14 @@ export default function PsdCreator({id}:{id:string}){
   }
   async function download(){
     const canvas=canvasRef.current;if(!canvas||!template)return;
-    if(original){setOriginal(false);await new Promise(resolve=>setTimeout(resolve,200));}
-    await draw();
+    await draw(false);
     canvas.toBlob(blob=>{
       if(!blob){setError('Não foi possível exportar PNG.');return;}
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');a.href=url;
       a.download=template.title.toLowerCase().replace(/[^a-z0-9]+/gi,'-')+'.png';a.click();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
-      track(template.id,'png');
+      track(template.id,projectIdRef.current,'PSD · '+template.title,'exported','png');
     },'image/png');
   }
   return <div className="fl-shell">
