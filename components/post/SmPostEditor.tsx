@@ -2,6 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import JSZip from 'jszip';
+import LogoutButton from '@/components/LogoutButton';
+import PsdTemplatesPicker from './PsdTemplatesPicker';
+import { V09_DEMO_MODE } from '@/lib/v09DemoMode';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
   SAFE_MARGIN,
@@ -43,12 +46,25 @@ type AutoLayoutState = 'idle' | 'loading' | 'preview' | 'error';
 
 const EMPTY_VIDEO_PREVIEW: VideoPreviewState = { duration: 0, currentTime: 0, isPlaying: false };
 
+// Agrupamentos pelo resultado visual, não pelo nome técnico da fonte.
 const LAYOUT_GROUPS: Array<{ label: string; ids: SmPostLayoutId[] }> = [
-  { label: 'Base', ids: ['classic'] },
-  { label: 'Kanit', ids: ['kanit-left', 'kanit-center', 'kanit-right'] },
-  { label: 'Vina', ids: ['vina-left', 'vina-right'] },
-  { label: 'Especiais', ids: ['post-7', 'post-8', 'post-9'] },
+  { label: 'Título e imagem', ids: ['classic', 'kanit-left', 'kanit-right', 'vina-left', 'vina-right'] },
+  { label: 'Destaque central', ids: ['kanit-center', 'post-7', 'post-8'] },
+  { label: 'Comunicados', ids: ['post-9'] },
 ];
+const LAYOUT_LABELS: Record<SmPostLayoutId, string> = {
+  'classic': 'Clássico com tag',
+  'kanit-left': 'Texto à esquerda',
+  'kanit-center': 'Texto centralizado',
+  'kanit-right': 'Texto à direita',
+  'vina-left': 'Título à esquerda',
+  'vina-right': 'Título à direita',
+  'post-7': 'Imagem na base',
+  'post-8': 'Imagem no topo',
+  'post-9': 'Comunicado em card',
+};
+
+type CatalogItem = { id: SmPostLayoutId; templateId: string; title: string; category: string; is_published: boolean; sort_order: number };
 
 function formatVideoTime(seconds: number) {
   const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
@@ -132,9 +148,26 @@ function formatHistoryDate(timestamp: number) {
   }).format(timestamp);
 }
 
+
+// Telemetria simples para o dashboard de homologação.
+// O envio nunca bloqueia edição ou exportação se a conexão falhar.
+function trackV09Demo(kind: 'created'|'saved'|'exported', project: SmPostProject, format = '') {
+  if (!V09_DEMO_MODE) return;
+  void fetch('/.netlify/functions/demo-activity', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind, projectId: project.id, projectName: project.name, format,
+      slideCount: project.slides.length, templateId: project.slides[0]?.fields.templatePresetId ?? project.slides[0]?.fields.layoutId ?? 'classic',
+    }),
+  }).catch(() => {});
+}
+
 export default function SmPostEditor() {
   const [project, setProject] = useState<SmPostProject | null>(null);
   const [history, setHistory] = useState<SmPostProject[]>([]);
+  const [layoutSearch, setLayoutSearch] = useState('');
+  const [catalog, setCatalog] = useState<CatalogItem[] | null>(null);
+  const [catalogError, setCatalogError] = useState('');
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('edit');
   const [error, setError] = useState('');
@@ -154,15 +187,61 @@ export default function SmPostEditor() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    let active = true;
+    fetch('/.netlify/functions/templates', { credentials: 'same-origin', cache: 'no-store' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Não foi possível carregar a biblioteca de templates.');
+        const data = await response.json() as { templates?: Array<Record<string, unknown>> };
+        if (!Array.isArray(data.templates)) throw new Error('Biblioteca de templates inválida.');
+        const valid = data.templates
+          .filter((row) => typeof row.id === 'string' && typeof (row.template_definition as { layoutId?: unknown } | undefined)?.layoutId === 'string'
+            && Object.prototype.hasOwnProperty.call(SM_POST_LAYOUTS, (row.template_definition as { layoutId: string }).layoutId))
+          .map((row) => ({
+            id: (row.template_definition as { layoutId: SmPostLayoutId }).layoutId,
+            templateId: row.id as string,
+            title: String(row.title ?? LAYOUT_LABELS[row.id as SmPostLayoutId]),
+            category: String(row.category ?? 'Outros'),
+            is_published: row.is_published === true,
+            sort_order: Number(row.sort_order ?? 0),
+          }));
+        if (active) setCatalog(valid);
+      })
+      .catch((failure: unknown) => {
+        if (active) setCatalogError(failure instanceof Error ? failure.message : 'Biblioteca indisponível.');
+      });
+    return () => { active = false; };
+  }, []);
+
+  const catalogNames = useMemo(() => {
+    const result: Partial<Record<SmPostLayoutId, string>> = {};
+    (catalog ?? []).forEach((entry) => { result[entry.id] = entry.title; });
+    return result;
+  }, [catalog]);
+
+  const catalogGroups = useMemo(() => {
+    if (!catalog) return [] as Array<{ label: string; items: CatalogItem[] }>;
+    const groups = new Map<string, CatalogItem[]>();
+    for (const item of [...catalog].filter((entry) => entry.is_published).sort((a, b) => a.sort_order - b.sort_order)) {
+      const label = item.category || 'Outros';
+      const items = groups.get(label) ?? [];
+      items.push(item);
+      groups.set(label, items);
+    }
+    return Array.from(groups, ([label, items]) => ({ label, items }));
+  }, [catalog]);
+
+  useEffect(() => {
     let cancelled = false;
     async function restore() {
       try {
         const localRecent = await listProjects();
         let cloudRecent: SmPostProject[] = [];
-        try {
-          cloudRecent = await listCloudProjects();
-        } catch {
-          // O editor continua disponível com o autosave local mesmo sem conexão com a nuvem.
+        if (!V09_DEMO_MODE) {
+          try {
+            cloudRecent = await listCloudProjects();
+          } catch {
+            // O editor continua disponível com o autosave local mesmo sem conexão com a nuvem.
+          }
         }
 
         const activeId = localStorage.getItem(ACTIVE_PROJECT_KEY);
@@ -172,12 +251,12 @@ export default function SmPostEditor() {
 
         if (!cancelled) {
           setProject(nextProject);
-          setHistory(cloudRecent.map(normalizeProject));
-          setCloudSaveState(
+          setHistory((V09_DEMO_MODE ? localRecent : cloudRecent).map(normalizeProject));
+          setCloudSaveState(V09_DEMO_MODE ? 'not_saved' : (
             cloudVersion
               ? (nextProject.updatedAt > cloudVersion.updatedAt ? 'dirty' : 'saved')
-              : 'not_saved',
-          );
+              : 'not_saved'
+          ));
           localStorage.setItem(ACTIVE_PROJECT_KEY, nextProject.id);
           setSaveState('saved');
         }
@@ -286,8 +365,9 @@ export default function SmPostEditor() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const addSlide = (layoutId: SmPostLayoutId) => {
+  const addSlide = (layoutId: SmPostLayoutId, templatePresetId?: string) => {
     const slide = createSlide(layoutId);
+    slide.fields.templatePresetId = templatePresetId ?? layoutId;
     updateProject((current) => ({
       ...current,
       slides: [...current.slides, slide],
@@ -363,7 +443,10 @@ export default function SmPostEditor() {
     try {
       await saveProject(project);
       const next = createProject();
+      const firstAvailable = catalog?.find((entry) => entry.is_published)?.id;
+      if (firstAvailable) next.slides[0].fields = { ...createDefaultFields(firstAvailable), templatePresetId: catalog?.find((entry) => entry.id === firstAvailable && entry.is_published)?.templateId ?? firstAvailable };
       setProject(next);
+      trackV09Demo('created', next);
       setCloudSaveState('not_saved');
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
       setActiveTab('edit');
@@ -379,10 +462,16 @@ export default function SmPostEditor() {
     setCloudSaveState('saving');
     setCloudErrorDetail('');
     try {
-      await saveCloudProject(project);
-      const recent = await listCloudProjects();
-      setHistory(recent.map(normalizeProject));
+      if (V09_DEMO_MODE) {
+        const recent = await saveProject(project);
+        setHistory(recent.map(normalizeProject));
+      } else {
+        await saveCloudProject(project);
+        const recent = await listCloudProjects();
+        setHistory(recent.map(normalizeProject));
+      }
       setCloudSaveState('saved');
+      trackV09Demo('saved', project);
       setError('');
     } catch (cloudError) {
       setCloudSaveState('error');
@@ -402,7 +491,7 @@ export default function SmPostEditor() {
       ].filter(Boolean).join(' · ') || (cloudError instanceof Error ? cloudError.message : String(cloudError));
 
       setCloudErrorDetail(detail);
-      setError(`Não foi possível salvar esta criação no histórico online. Supabase: ${detail}. O autosave local continua ativo.`);
+      setError(V09_DEMO_MODE ? 'Não foi possível salvar o histórico de testes neste navegador.' : `Não foi possível salvar esta criação no histórico online. Supabase: ${detail}. O autosave local continua ativo.`);
     }
   };
 
@@ -410,7 +499,7 @@ export default function SmPostEditor() {
     if (!project || projectId === project.id) return;
     try {
       await saveProject(project);
-      const saved = await getCloudProject(projectId);
+      const saved = V09_DEMO_MODE ? await getProject(projectId) : await getCloudProject(projectId);
       if (!saved) return;
       const next = normalizeProject(saved);
       await saveProject(next);
@@ -550,6 +639,7 @@ export default function SmPostEditor() {
       }
       if (!blob) throw new Error('Canvas indisponível.');
       downloadBlob(blob, `${safeFilename(project?.name ?? 'post')}-${activeIndex + 1}.${exportFormat}`);
+      if (project) trackV09Demo('exported', project, exportFormat);
       setError('');
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Falha ao exportar.');
@@ -571,6 +661,7 @@ export default function SmPostEditor() {
       }
       const zip = await archive.generateAsync({ type: 'blob' });
       downloadBlob(zip, `${baseName}.zip`);
+      trackV09Demo('exported', project, 'zip');
       setError('');
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Falha ao exportar o carrossel.');
@@ -618,8 +709,9 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v08-beta.2</small></h1>
+        <h1>FG Post Studio <small>Editor de posts · V09 (prévia)</small></h1>
         <div className="sm-post-header-actions">
+          {V09_DEMO_MODE ? <a className="sm-post-secondary-btn" href="/" style={{ textDecoration: 'none' }}>← Menu</a> : <LogoutButton />}
           <select
             className="sm-post-secondary-btn"
             value={exportFormat}
@@ -679,7 +771,8 @@ export default function SmPostEditor() {
           </span>
         </button>
         <small className={`sm-post-cloud-status is-${cloudSaveState}`}>
-          {cloudSaveState === 'saved'
+          {V09_DEMO_MODE ? 'Modo de testes: rascunhos salvos somente neste navegador (até 5 recentes). Não altera o histórico do Supabase.' : (
+          cloudSaveState === 'saved'
             ? 'Esta versão está salva online.'
             : cloudSaveState === 'dirty'
               ? 'Há alterações ainda não salvas no histórico.'
@@ -687,7 +780,7 @@ export default function SmPostEditor() {
                 ? `Falha ao salvar online. ${cloudErrorDetail ? `Supabase: ${cloudErrorDetail}` : 'Seu rascunho continua salvo localmente.'}`
                 : cloudSaveState === 'saving'
                   ? 'Enviando esta versão para o Supabase.'
-                  : 'Rascunho local. Salve quando quiser adicionar ao histórico.'}
+                  : 'Rascunho local. Salve quando quiser adicionar ao histórico.')}
         </small>
 
         <div className="sm-post-rail-section">
@@ -715,35 +808,59 @@ export default function SmPostEditor() {
 
         <div className="sm-post-rail-section">
           <div className="sm-post-section-head"><span>Adicionar layout</span></div>
+          <input
+            type="search"
+            className="sm-post-layout-search"
+            value={layoutSearch}
+            onChange={(event) => setLayoutSearch(event.target.value)}
+            placeholder="Buscar modelo..."
+            aria-label="Buscar modelo de post"
+          />
           <div className="sm-post-layout-groups">
-            {LAYOUT_GROUPS.map((group) => (
-              <div key={group.label} className="sm-post-layout-group">
-                <div className="sm-post-layout-group-title">{group.label}</div>
-                <div className="sm-post-layout-grid">
-                  {group.ids.map((layoutId) => {
-                    const option = SM_POST_LAYOUTS[layoutId];
-                    return (
-                      <button key={option.id} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id)}>
-                        <span
-                          className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}
-                        >
-                          {option.tag && <i />}
-                          <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
-                          <em />
-                        </span>
-                        <span>{option.shortName.replace(/^Base · |^Kanit · |^Vina · |^Especial · /, '')}</span>
-                        <small>+ adicionar</small>
-                      </button>
-                    );
-                  })}
+            {catalogGroups.map((group) => {
+              const query = layoutSearch.trim().toLocaleLowerCase('pt-BR');
+              const visibleItems = group.items.filter((item) =>
+                !query || group.label.toLocaleLowerCase('pt-BR').includes(query) ||
+                item.title.toLocaleLowerCase('pt-BR').includes(query)
+              );
+              if (!visibleItems.length) return null;
+              return (
+                <div key={group.label} className="sm-post-layout-group">
+                  <div className="sm-post-layout-group-title">{group.label}</div>
+                  <div className="sm-post-layout-grid">
+                    {visibleItems.map((item) => {
+                      const option = SM_POST_LAYOUTS[item.id];
+                      return (
+                        <button key={item.templateId} type="button" className="sm-post-layout-card" onClick={() => addSlide(option.id,item.templateId)} title={item.title}>
+                          <span className={`sm-post-layout-preview align-${option.headline.align} font-${option.headline.fontFamily.includes('Kanit') ? 'kanit' : 'vina'} kind-${option.kind}`}>
+                            {option.tag && <i />}
+                            <b>{option.kind === 'post9' ? '@FG' : 'ABC'}</b>
+                            <em />
+                          </span>
+                          <span>{item.title}</span>
+                          <small>+ adicionar</small>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+            {catalogError && <p className="sm-post-hint" role="alert">{catalogError}</p>}
+            {catalog === null && !catalogError && <p className="sm-post-hint">Carregando modelos...</p>}
+            {catalog !== null && !catalogGroups.some((group) =>
+              group.label.toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')) ||
+              group.items.some((item) => item.title.toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
+            ) && <p className="sm-post-hint">Nenhum modelo encontrado.</p>}
           </div>
+        </div>
+        <div className="sm-post-rail-section">
+          <div className="sm-post-section-head"><span>Modelos PSD publicados</span></div>
+          <PsdTemplatesPicker />
         </div>
 
         <div className="sm-post-rail-section">
-          <div className="sm-post-section-head"><span>Histórico</span><small>{history.length}</small></div>
+          <div className="sm-post-section-head"><span>{V09_DEMO_MODE ? 'Recentes neste navegador' : 'Histórico'}</span><small>{history.length}</small></div>
           <div className="sm-post-history-list">
             {history.length === 0 && <p className="sm-post-hint">As criações salvas aparecerão aqui.</p>}
             {history.map((saved) => (
@@ -761,6 +878,7 @@ export default function SmPostEditor() {
             ))}
           </div>
         </div>
+        <div className="sm-post-legal"><strong>FG Post Studio · Final Level Co.</strong><br />Ferramenta interna de uso exclusivo por pessoas autorizadas. © 2026 Final Level Co. Todos os direitos reservados.</div>
       </aside>
 
       <section className="sm-post-fields">
@@ -817,7 +935,7 @@ export default function SmPostEditor() {
             <label className="sm-post-field">
               <span>Layout</span>
               <select value={fields.layoutId} onChange={(event) => changeLayout(event.target.value as SmPostLayoutId)}>
-                {SM_POST_LAYOUT_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+                {SM_POST_LAYOUT_OPTIONS.filter((option) => option.id === fields.layoutId || catalog?.some((entry) => entry.id === option.id && entry.is_published)).map((option) => <option key={option.id} value={option.id}>{catalogNames[option.id] ?? LAYOUT_LABELS[option.id]}</option>)}
               </select>
             </label>
 

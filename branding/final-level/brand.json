@@ -1,0 +1,26 @@
+{
+  "brand": "Final Level Co",
+  "tagline": "Where brands become culture",
+  "essence": "Conteúdo, experiência e tecnologia que conecta marcas à cultura.",
+  "principles": [
+    "Dark-first",
+    "Roxo protagonista",
+    "Profundidade por camadas",
+    "Tipografia como elemento gráfico",
+    "Contraste agressivo",
+    "Sem decoração gratuita",
+    "360° thinking"
+  ],
+  "voice": {
+    "idioma": "pt-BR; inglês só em tagline",
+    "tom": "Confiante, cultural, energético",
+    "pessoa": "1ª pessoa do plural",
+    "case": "sentence case"
+  },
+  "taglines": [
+    "Where brands become culture",
+    "Reach the next level",
+    "Uma abordagem 360°"
+  ],
+  "tokens": "./tokens.css"
+}

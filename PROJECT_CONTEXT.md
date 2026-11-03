@@ -2,6 +2,24 @@
 
 Este arquivo é a fonte de contexto do projeto para futuras alterações. Antes de modificar a aplicação, consulte este documento e preserve as funcionalidades existentes, evitando substituir arquivos inteiros por versões antigas.
 
+## Contexto da V09 — Branch de homologação (03/11/2026)
+
+A implementação da V09 está em `feat/v09-netlify-admin-creator`, PR #3 (rascunho). **Não aplicar merge à produção até concluir a migração e testes manuais.**
+
+**Acesso temporário:** Netlify Pro com senha geral de site (Visitor access) protegendo todos os deploys, sem login secundário no Deploy Preview. A home oferece dois acessos (`/admin` e `/criar`). O modo `NEXT_PUBLIC_FG_V09_DEMO=1` só é definido em `[context.deploy-preview.environment]` no `netlify.toml`; não habilitar na produção. O código do Netlify Identity permanece implementado para ativação futura dos papéis `admin` e `creator`.
+
+**Administração:** `app/admin/AdminWorkspace.tsx` organiza a navegação; `AdminOverview.tsx` mostra indicadores gerados pelo `netlify/functions/admin-overview.ts`; `TemplateManager.tsx` gerencia os nove layouts nativos e presets, com registros locais de versões; `PsdImport.tsx` identifica layers e publica PSDs em formato de preview. O armazenamento de demonstração usa `getDeployStore` (isolado por deploy, não definitivo).
+
+**Criação:** editor original em `SmPostEditor.tsx`, com histórico IndexedDB, pesquisa e categorias de templates, presets com `templatePresetId`, telemetria `demo-activity.ts` e atalho para `/criar/psd/[id]`. Importador PSD usa `ag-psd` no navegador, exporta composição PNG rasterizada; alguns efeitos e fontes especiais não serão idênticos ao Photoshop e precisam de validação com o arquivo real.
+
+**Identidade visual:** `branding/final-level/brand.json`, `tokens.json`, `tokens.css`, `fl-icons.json` e `components/FlIcon.tsx`. O modo claro foi escolhido como padrão da V09, mesmo que a diretriz da marca original seja dark-first.
+
+**Escopo pendente obrigatório:** migrar `fg_projects` + `fg-studio-media` do Supabase para Netlify Database e Blobs, garantir histórico completo, upload de vídeos grandes, segurança por perfis e validações manuais de PSD/exportação. **Nunca apresentar métricas de preview como histórico completo do FG Post Studio.**
+
+Documentação detalhada: `CHANGELOG.md` e `V09_MIGRATION.md`.
+
+---
+
 ## 1. Visão geral
 
 O FG Post Studio é uma plataforma de criação de conteúdos para o Favela Gaming. O objetivo é centralizar templates oficiais, edição de textos, imagens e vídeos, montagem de posts e carrosséis e exportações prontas para social media diretamente no navegador.
