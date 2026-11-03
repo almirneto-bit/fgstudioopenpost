@@ -12,7 +12,18 @@
 - Templates Favela Gaming preservados na renderização e exportação.
 - CHANGELOG.md como registro cumulativo de decisões, alterações, bugs e validações.
 
-## Etapa 1: configuração manual do Identity
+## Decisão temporária: demonstração com uma única senha (03/11/2026)
+- **Prioridade atual:** experimentar UI e painéis; autenticacão individual fica para depois.
+- **Login exigido:** somente a senha de Visitor access que já existe no Netlify. Não alterar nem remover esta senha.
+- **Entrada:** Deploy Preview #3 -> menu com `/criar` e `/admin`, sem convite ou senha adicional.
+- **Escopo:** somente `deploy-preview`, via `NEXT_PUBLIC_FG_V09_DEMO=1` configurado em `netlify.toml`. Não habilitar em produção.
+- **Administração de testes:** gravar metadados no `getDeployStore` do Netlify Blobs, isolado por deploy. Todos com a senha geral podem editar os dados de teste.
+- **Editor de testes:** salvar e abrir rascunhos no IndexedDB deste navegador, até cinco criações recentes. Sem gravação ou leitura do Supabase em modo demonstrativo.
+- **Não disponível ainda:** migração para Database, uploads de mídia para Blobs, histórico sincronizado entre pessoas, edição estrutural de templates/PSDs e login individual.
+- **Restauração posterior:** após homologar, remover flag de demo do preview e retomar etapas de Netlify Identity com perfis `admin`/`creator`.
+- **Validação:** CI da branch aprovado, status de Deploy Preview aprovado; testes interativos ainda a realizar.
+
+## Etapa futura: configuração manual do Identity (adiada pelo usuário)
 1. Abrir https://app.netlify.com/projects/fgpoststudio/identity e selecionar **Enable Identity**.
 2. Em Registration preferences, definir **Invite only** (nunca Open para esta ferramenta interna).
 3. Convidar as pessoas autorizadas, criando uma conta administrativa inicial.
