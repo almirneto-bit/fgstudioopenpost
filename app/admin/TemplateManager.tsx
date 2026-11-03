@@ -19,7 +19,7 @@ export default function TemplateManager() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/.netlify/functions/templates', { cache: 'no-store', credentials: 'same-origin' })
+    fetch('/.netlify/functions/templates?scope=admin', { cache: 'no-store', credentials: 'same-origin' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Catálogo indisponível: verifique Identity e Netlify Database.');
         const result = await response.json() as { templates?: TemplateRow[] };
