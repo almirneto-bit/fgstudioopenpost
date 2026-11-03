@@ -43,15 +43,11 @@ async function authorized(req: Request, context: Context, write: boolean): Promi
 async function listAll(): Promise<PsdRecord[]> {
   const store = getDeployStore(STORE);
   const results: PsdRecord[] = [];
-  let cursor: string | undefined;
-  do {
-    const page = await store.list({ prefix: 'psd:', ...(cursor ? { cursor } : {}) });
-    for (const entry of page.blobs) {
-      const row = await store.get(entry.key, { type: 'json' }) as PsdRecord | null;
-      if (row) results.push(row);
-    }
-    cursor = page.nextCursor;
-  } while (cursor);
+  const page = await store.list({ prefix: 'psd:' });
+  for (const entry of page.blobs) {
+    const row = await store.get(entry.key, { type: 'json' }) as PsdRecord | null;
+    if (row) results.push(row);
+  }
   return results.sort((a,b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
