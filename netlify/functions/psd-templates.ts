@@ -10,12 +10,14 @@ export type PsdSlot = {
   x: number; y: number; width: number; height: number;
   defaultText?: string;
   fontSize?: number;
+  fontFamily?: string;
+  color?: string;
   editable: boolean;
 };
 export type PsdRecord = {
   id: string; title: string; category: string;
   width: number; height: number;
-  preview: string; background: string;
+  preview: string; background: string; thumbnail?: string;
   slots: PsdSlot[];
   sourceName: string;
   layerCount: number;
@@ -99,6 +101,7 @@ export default async function psdTemplates(request: Request, context: Context) {
   const title = String(input.title ?? '').trim();
   const category = String(input.category ?? '').trim();
   const preview = String(input.preview ?? '');
+  const thumbnail = String(input.thumbnail ?? '');
   const background = String(input.background ?? '');
   const width = Number(input.width);
   const height = Number(input.height);
@@ -107,6 +110,7 @@ export default async function psdTemplates(request: Request, context: Context) {
      || !/^data:image\/(jpeg|png);base64,/.test(preview)
      || !/^data:image\/(jpeg|png);base64,/.test(background)
      || preview.length > 1_800_000 || background.length > 1_800_000
+     || thumbnail.length > 150_000
      || !Array.isArray(input.slots) || input.slots.length > 150
      || typeof input.sourceName !== 'string' || input.sourceName.length > 260) {
     return Response.json({ error: 'Dados do template inválidos ou imagens muito grandes' }, { status: 400 });
@@ -122,6 +126,8 @@ export default async function psdTemplates(request: Request, context: Context) {
       x: Number(entry.x), y: Number(entry.y), width: Number(entry.width), height: Number(entry.height),
       defaultText: typeof entry.defaultText === 'string' ? entry.defaultText.slice(0,2000) : '',
       fontSize: typeof entry.fontSize === 'number' ? entry.fontSize : 48,
+      fontFamily: typeof entry.fontFamily === 'string' ? entry.fontFamily.slice(0,80) : undefined,
+      color: typeof entry.color === 'string' && /^#[0-9a-f]{6}$/i.test(entry.color) ? entry.color : '#FFFFFF',
       editable: entry.editable === true,
     };
     if ([slot.x,slot.y,slot.width,slot.height].some(v => !Number.isFinite(v)) || slot.width < 0 || slot.height < 0)
@@ -132,7 +138,7 @@ export default async function psdTemplates(request: Request, context: Context) {
   if (existing) return Response.json({ error: 'Identificador já utilizado' }, { status: 409 });
   const createdAt = new Date().toISOString();
   const value: PsdRecord = {
-    id, title, category, width, height, preview, background, slots,
+    id, title, category, width, height, preview, background, thumbnail, slots,
     sourceName: String(input.sourceName),
     layerCount: Math.max(0,Number(input.layerCount ?? slots.length)),
     warnings: Array.isArray(input.warnings) ? input.warnings.filter((v):v is string=>typeof v==='string').slice(0,20) : [],
