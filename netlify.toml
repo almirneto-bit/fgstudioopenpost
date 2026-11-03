@@ -1,0 +1,15 @@
+# FG Post Studio V09 · ambiente de homologação Netlify.
+# Mantém o Next.js como SSR. Não aplicar output=export para rotas protegidas.
+[build]
+  command = "npm install --package-lock-only --ignore-scripts --no-audit --no-fund && npm ci --no-audit --no-fund && STATIC_EXPORT=0 npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22.16.0"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# A autenticação e autorização são verificadas no servidor.
+# Não adicionar fallback SPA /* -> /index.html que bypassaria o Next.js SSR.
