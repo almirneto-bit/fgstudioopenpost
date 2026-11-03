@@ -10,15 +10,11 @@ function catalogStore(){return getDeployStore('fgstudio-v09-demo-templates');}
 async function psdList() {
   const store=getDeployStore('fgstudio-v09-demo-psd');
   const rows:PsdTemplate[]=[];
-  let cursor:string|undefined;
-  do {
-    const page=await store.list({prefix:'psd:',...(cursor?{cursor}:{})});
-    for(const entry of page.blobs){
-      const raw=await store.get(entry.key,{type:'json'}) as PsdTemplate|null;
-      if(raw)rows.push({id:raw.id,title:raw.title,category:raw.category,published:raw.published,updatedAt:raw.updatedAt});
-    }
-    cursor=page.nextCursor;
-  }while(cursor);
+  const page=await store.list({prefix:'psd:'});
+  for(const entry of page.blobs){
+    const raw=await store.get(entry.key,{type:'json'}) as PsdTemplate|null;
+    if(raw)rows.push({id:raw.id,title:raw.title,category:raw.category,published:raw.published,updatedAt:raw.updatedAt});
+  }
   return rows;
 }
 const defaults:TemplateBase[]=[
