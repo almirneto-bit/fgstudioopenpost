@@ -1,5 +1,6 @@
 import { getUser } from '@netlify/identity';
 import TemplateManager from './TemplateManager';
+import LogoutButton from '@/components/LogoutButton';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,7 @@ export default async function AdminPage() {
           <p className="fl-eyebrow">Final Level Co. · Administração</p>
           <div className="fl-title">FG Post Studio</div>
         </div>
-        <a className="fl-button" href="/criar" style={{ textDecoration: 'none' }}>Abrir editor</a>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><a className="fl-button" href="/criar" style={{ textDecoration: 'none' }}>Abrir editor</a><LogoutButton /></div>
       </header>
       <main className="fl-main">
         <h1 className="fl-title">Gerenciamento de templates</h1>
