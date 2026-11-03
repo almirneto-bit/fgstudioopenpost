@@ -29,7 +29,7 @@ export default function LoginClient() {
         if (!result) { setScreen('login'); return; }
         if (result.type === 'invite') {
           // Invite callbacks have a token but no authenticated user yet.
-          setInviteToken(result.token);
+          setInviteToken(result.token ?? '');
           setScreen('invite');
           return;
         }
