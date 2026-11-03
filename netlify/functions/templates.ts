@@ -45,6 +45,13 @@ export default async function templates(request: Request, context: Context) {
   const isAdmin = demo || !!user?.roles?.includes('admin');
   if (!isAdmin && !user?.roles?.includes('creator')) return Response.json({ error: 'Sem permissão' }, { status: 403 });
 
+  if (demo && request.method === 'GET' && new URL(request.url).searchParams.has('versions')) {
+    const id = new URL(request.url).searchParams.get('versions') ?? '';
+    if(!/^[a-z0-9-]{2,90}$/.test(id))return Response.json({error:'ID inválido'},{status:400});
+    const versions=await demoStore().get(versionKey(id),{type:'json'}) as DemoRow[]|null;
+    return Response.json({ versions:versions??[] }, { headers: { 'Cache-Control': 'no-store' } });
+  }
+
   if (demo && request.method === 'GET') {
     try {
       const all = await readDemoTemplates();
@@ -67,13 +74,6 @@ export default async function templates(request: Request, context: Context) {
       : await db!.sql`SELECT id, slug, title, category, description, is_published, sort_order, version, template_definition
                      FROM fg_templates WHERE is_published = true ORDER BY category, sort_order, title`;
     return Response.json({ templates }, { headers: { 'Cache-Control': 'no-store' } });
-  }
-
-  if (demo && request.method === 'GET' && new URL(request.url).searchParams.has('versions')) {
-    const id = new URL(request.url).searchParams.get('versions') ?? '';
-    if(!/^[a-z0-9-]{2,90}$/.test(id))return Response.json({error:'ID inválido'},{status:400});
-    const versions=await demoStore().get(versionKey(id),{type:'json'}) as DemoRow[]|null;
-    return Response.json({ versions:versions??[] }, { headers: { 'Cache-Control': 'no-store' } });
   }
 
   if (!['PATCH','POST','DELETE'].includes(request.method)) return new Response('Método não permitido', { status: 405 });
