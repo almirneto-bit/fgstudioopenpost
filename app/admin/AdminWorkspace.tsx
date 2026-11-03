@@ -3,17 +3,18 @@ import { useState } from 'react';
 import AdminOverview from './AdminOverview';
 import TemplateManager from './TemplateManager';
 import PsdImport from './PsdImport';
+import { FlIcon, type FlIconName } from '@/components/FlIcon';
 
 type Tab='overview'|'templates'|'psd'|'projects'|'settings';
 
 export default function AdminWorkspace(){
   const [tab,setTab]=useState<Tab>('overview');
-  const items:{id:Tab;name:string;description:string}[]=[
-    {id:'overview',name:'Visão geral',description:'Métricas e desempenho'},
-    {id:'templates',name:'Templates',description:'Catálogo de layouts'},
-    {id:'psd',name:'Importar PSD',description:'Mapear camadas'},
-    {id:'projects',name:'Criações',description:'Histórico de projetos'},
-    {id:'settings',name:'Configurações',description:'Infraestrutura'},
+  const items:{id:Tab;name:string;description:string;icon:FlIconName}[]=[
+    {id:'overview',name:'Visão geral',description:'Métricas e desempenho',icon:'chart-bar-vertical-01'},
+    {id:'templates',name:'Templates',description:'Catálogo de layouts',icon:'layers'},
+    {id:'psd',name:'Importar PSD',description:'Mapear camadas',icon:'file-upload'},
+    {id:'projects',name:'Criações',description:'Histórico de projetos',icon:'folder'},
+    {id:'settings',name:'Configurações',description:'Infraestrutura',icon:'settings'},
   ];
   return <div className="fl-admin-layout">
     <aside className="fl-admin-sidebar">
@@ -21,7 +22,7 @@ export default function AdminWorkspace(){
       <nav aria-label="Navegação de administração">
         {items.map(item=><button key={item.id} type="button" className={tab===item.id?'fl-admin-nav is-active':'fl-admin-nav'}
           onClick={()=>setTab(item.id)}>
-          <strong>{item.name}</strong><small>{item.description}</small>
+          <span className="fl-admin-nav-label"><FlIcon name={item.icon} size={18}/><strong>{item.name}</strong></span><small>{item.description}</small>
         </button>)}
       </nav>
       <div className="fl-admin-sidebottom">FG Post Studio · V09 (beta)<p>Uso exclusivo Final Level Co.</p></div>
