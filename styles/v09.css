@@ -199,3 +199,8 @@ html, body { color-scheme: light; }
  .fl-psd-preview{max-width:240px}
  .fl-admin-filters select{width:100%}
 }
+
+/* Iconografia oficial Final Level */
+.fl-admin-nav-label{display:flex;align-items:center;gap:11px}
+.fl-admin-nav-label svg{flex-shrink:0;color:inherit}
+.fl-choice-icon svg{display:block}
