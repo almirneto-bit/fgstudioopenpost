@@ -1,3 +1,4 @@
+import { FlIcon } from '@/components/FlIcon';
 import { getUser } from '@netlify/identity';
 import { redirect } from 'next/navigation';
 import { V09_DEMO_MODE } from '@/lib/v09DemoMode';
@@ -37,14 +38,14 @@ export default async function Home() {
         <nav className="fl-choice-grid" aria-label="Escolher ambiente do FG Post Studio">
           <a href="/criar" className="fl-choice-card">
             <div className="fl-choice-number">01 <span>USO DA PLATAFORMA</span></div>
-            <div className="fl-choice-icon" aria-hidden="true">✦</div>
+            <div className="fl-choice-icon" aria-hidden="true"><FlIcon name="image-01" size={29}/></div>
             <h2>Criar posts</h2>
             <p>Selecione layouts, adicione textos e mídias, monte o carrossel e exporte suas artes.</p>
             <span className="fl-choice-cta">Abrir editor <span aria-hidden="true">↗</span></span>
           </a>
           <a href="/admin" className="fl-choice-card">
             <div className="fl-choice-number">02 <span>CONTROLE DOS MODELOS</span></div>
-            <div className="fl-choice-icon" aria-hidden="true">▦</div>
+            <div className="fl-choice-icon" aria-hidden="true"><FlIcon name="layers" size={29}/></div>
             <h2>Administração</h2>
             <p>Organize templates, ajuste nomes e categorias, escolha a ordem e controle a publicação.</p>
             <span className="fl-choice-cta">Gerenciar templates <span aria-hidden="true">↗</span></span>
