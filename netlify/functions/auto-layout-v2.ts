@@ -7,7 +7,7 @@ export default async function autoLayout(request: Request, _context: Context) {
   if (request.method !== 'POST') return Response.json({ error: 'Método não permitido' }, { status: 405 });
   const user = await getUser();
   if (!user) return Response.json({ error: 'Faça login para usar Auto Layout' }, { status: 401 });
-  if (!user.roles.includes('admin') && !user.roles.includes('creator')) {
+  if (!user.roles?.includes('admin') && !user.roles?.includes('creator')) {
     return Response.json({ error: 'Sem permissão para usar Auto Layout' }, { status: 403 });
   }
   if (request.headers.get('origin') !== new URL(request.url).origin) {
