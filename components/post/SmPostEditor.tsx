@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import JSZip from 'jszip';
 import LogoutButton from '@/components/LogoutButton';
+import PsdTemplatesPicker from './PsdTemplatesPicker';
 import { V09_DEMO_MODE } from '@/lib/v09DemoMode';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
@@ -145,6 +146,20 @@ function formatHistoryDate(timestamp: number) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(timestamp);
+}
+
+
+// Telemetria simples para o dashboard de homologação.
+// O envio nunca bloqueia edição ou exportação se a conexão falhar.
+function trackV09Demo(kind: 'created'|'saved'|'exported', project: SmPostProject, format = '') {
+  if (!V09_DEMO_MODE) return;
+  void fetch('/.netlify/functions/demo-activity', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      kind, projectId: project.id, projectName: project.name, format,
+      slideCount: project.slides.length, templateId: project.slides[0]?.fields.layoutId ?? 'classic',
+    }),
+  }).catch(() => {});
 }
 
 export default function SmPostEditor() {
@@ -428,6 +443,7 @@ export default function SmPostEditor() {
       const firstAvailable = catalog?.find((entry) => entry.is_published)?.id;
       if (firstAvailable) next.slides[0].fields = createDefaultFields(firstAvailable);
       setProject(next);
+      trackV09Demo('created', next);
       setCloudSaveState('not_saved');
       localStorage.setItem(ACTIVE_PROJECT_KEY, next.id);
       setActiveTab('edit');
@@ -452,6 +468,7 @@ export default function SmPostEditor() {
         setHistory(recent.map(normalizeProject));
       }
       setCloudSaveState('saved');
+      trackV09Demo('saved', project);
       setError('');
     } catch (cloudError) {
       setCloudSaveState('error');
@@ -619,6 +636,7 @@ export default function SmPostEditor() {
       }
       if (!blob) throw new Error('Canvas indisponível.');
       downloadBlob(blob, `${safeFilename(project?.name ?? 'post')}-${activeIndex + 1}.${exportFormat}`);
+      if (project) trackV09Demo('exported', project, exportFormat);
       setError('');
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Falha ao exportar.');
@@ -640,6 +658,7 @@ export default function SmPostEditor() {
       }
       const zip = await archive.generateAsync({ type: 'blob' });
       downloadBlob(zip, `${baseName}.zip`);
+      trackV09Demo('exported', project, 'zip');
       setError('');
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : 'Falha ao exportar o carrossel.');
@@ -831,6 +850,10 @@ export default function SmPostEditor() {
               group.ids.some((id) => (catalogNames[id] ?? LAYOUT_LABELS[id]).toLocaleLowerCase('pt-BR').includes(layoutSearch.trim().toLocaleLowerCase('pt-BR')))
             ) && <p className="sm-post-hint">Nenhum modelo encontrado.</p>}
           </div>
+        </div>
+        <div className="sm-post-rail-section">
+          <div className="sm-post-section-head"><span>Modelos PSD publicados</span></div>
+          <PsdTemplatesPicker />
         </div>
 
         <div className="sm-post-rail-section">
