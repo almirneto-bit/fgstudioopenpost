@@ -1,21 +1,64 @@
 import { getUser } from '@netlify/identity';
 import { getDatabase } from '@netlify/database';
 import type { Context } from '@netlify/functions';
+import { getDeployStore } from '@netlify/blobs';
+import { isV09PasswordOnlyPreview } from '../../lib/v09NetlifyPreview';
+
+// Catálogo provisório isolado do deploy. Não modifica o banco nem o Supabase.
+type DemoRow = {
+  id: string; slug: string; title: string; category: string; description: string;
+  is_published: boolean; sort_order: number; version: number; template_definition: { layoutId: string };
+};
+const DEFAULT_DEMO_TEMPLATES: DemoRow[] = [
+  ['classic', 'Clássico com tag', 'Título e imagem', 10],
+  ['kanit-left', 'Texto à esquerda', 'Título e imagem', 20],
+  ['kanit-right', 'Texto à direita', 'Título e imagem', 30],
+  ['vina-left', 'Título à esquerda', 'Título e imagem', 40],
+  ['vina-right', 'Título à direita', 'Título e imagem', 50],
+  ['kanit-center', 'Texto centralizado', 'Destaque central', 60],
+  ['post-7', 'Imagem na base', 'Destaque central', 70],
+  ['post-8', 'Imagem no topo', 'Destaque central', 80],
+  ['post-9', 'Comunicado em card', 'Comunicados', 90],
+].map(([id, title, category, order]) => ({
+  id: String(id), slug: String(id), title: String(title), category: String(category),
+  description: '', is_published: true, sort_order: Number(order), version: 1,
+  template_definition: { layoutId: String(id) },
+}));
+function demoStore() { return getDeployStore('fgstudio-v09-demo-templates'); }
+async function readDemoTemplates(): Promise<DemoRow[]> {
+  const stored = await demoStore().get('catalog', { type: 'json' }) as DemoRow[] | null;
+  return Array.isArray(stored) ? stored : DEFAULT_DEMO_TEMPLATES;
+}
 
 // O administrador controla rótulos, categorias e visibilidade.
 // O renderer original permanece intacto nesta fase.
-export default async function templates(request: Request, _context: Context) {
-  const user = await getUser();
-  if (!user) return Response.json({ error: 'Autenticação necessária' }, { status: 401 });
-  const isAdmin = user.roles?.includes('admin');
-  if (!isAdmin && !user.roles?.includes('creator')) return Response.json({ error: 'Sem permissão' }, { status: 403 });
+export default async function templates(request: Request, context: Context) {
+  const demo = isV09PasswordOnlyPreview(request, context);
+  const user = demo ? null : await getUser();
+  if (!demo && !user) return Response.json({ error: 'Autenticação necessária' }, { status: 401 });
+  const isAdmin = demo || !!user?.roles?.includes('admin');
+  if (!isAdmin && !user?.roles?.includes('creator')) return Response.json({ error: 'Sem permissão' }, { status: 403 });
 
-  const db = getDatabase();
+  if (demo && request.method === 'GET') {
+    try {
+      const all = await readDemoTemplates();
+      const showAll = new URL(request.url).searchParams.get('scope') === 'admin';
+      const visible = all.filter((row) => showAll || row.is_published)
+        .sort((a, b) => a.sort_order - b.sort_order || a.title.localeCompare(b.title));
+      return Response.json({ templates: visible, demo: true }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch {
+      // Manter a lista disponível mesmo em caso de falha temporária do Blobs.
+      return Response.json({ templates: DEFAULT_DEMO_TEMPLATES, demo: true, storageWarning: true },
+        { headers: { 'Cache-Control': 'no-store' } });
+    }
+  }
+
+  const db = demo ? null : getDatabase();
   if (request.method === 'GET') {
     const templates = isAdmin
-      ? await db.sql`SELECT id, slug, title, category, description, is_published, sort_order, version, template_definition
+      ? await db!.sql`SELECT id, slug, title, category, description, is_published, sort_order, version, template_definition
                      FROM fg_templates ORDER BY category, sort_order, title`
-      : await db.sql`SELECT id, slug, title, category, description, is_published, sort_order, version, template_definition
+      : await db!.sql`SELECT id, slug, title, category, description, is_published, sort_order, version, template_definition
                      FROM fg_templates WHERE is_published = true ORDER BY category, sort_order, title`;
     return Response.json({ templates }, { headers: { 'Cache-Control': 'no-store' } });
   }
@@ -39,7 +82,30 @@ export default async function templates(request: Request, _context: Context) {
   if (typeof data.sortOrder !== 'number' || !Number.isInteger(data.sortOrder) || data.sortOrder < 0 || data.sortOrder > 9999)
     return Response.json({ error: 'Posição inválida' }, { status: 400 });
 
-  const rows = await db.sql`
+  if (demo) {
+    try {
+      const current = await readDemoTemplates();
+      const index = current.findIndex((row) => row.id === data.id);
+      if (index < 0) return Response.json({ error: 'Modelo não encontrado' }, { status: 404 });
+      const original = current[index];
+      const changed: DemoRow = {
+        ...original,
+        title: data.title.trim(),
+        category: data.category.trim(),
+        is_published: data.isPublished,
+        sort_order: data.sortOrder,
+        version: original.version + 1,
+      };
+      const updated = [...current];
+      updated[index] = changed;
+      await demoStore().setJSON('catalog', updated);
+      return Response.json({ template: changed, demo: true }, { headers: { 'Cache-Control': 'no-store' } });
+    } catch {
+      return Response.json({ error: 'Não foi possível salvar a versão de testes. Tente novamente.' }, { status: 503 });
+    }
+  }
+
+  const rows = await db!.sql`
     UPDATE fg_templates
     SET title = ${data.title.trim()}, category = ${data.category.trim()},
         is_published = ${data.isPublished}, sort_order = ${data.sortOrder},
@@ -48,9 +114,9 @@ export default async function templates(request: Request, _context: Context) {
     RETURNING id, title, category, is_published, sort_order, version
   `;
   if (!rows.length) return Response.json({ error: 'Template não encontrado' }, { status: 404 });
-  await db.sql`
+  await db!.sql`
     INSERT INTO fg_audit_log (actor_id, action, resource_type, resource_id)
-    VALUES (${user.id}, 'template.metadata.updated', 'template', ${data.id})
+    VALUES (${user?.id ?? ''}, 'template.metadata.updated', 'template', ${data.id})
   `;
   return Response.json({ template: rows[0] }, { headers: { 'Cache-Control': 'no-store' } });
 }
