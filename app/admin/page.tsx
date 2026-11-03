@@ -1,4 +1,5 @@
 import { getUser } from '@netlify/identity';
+import TemplateManager from './TemplateManager';
 import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
@@ -19,12 +20,8 @@ export default async function AdminPage() {
       </header>
       <main className="fl-main">
         <h1 className="fl-title">Gerenciamento de templates</h1>
-        <p className="fl-muted">Ambiente administrativo protegido por permissão. A biblioteca editável e a migração de dados serão conectadas ao Netlify Database na próxima implementação desta branch.</p>
-        <section className="fl-panel" style={{ marginTop: 28 }}>
-          <p className="fl-eyebrow">V09 · Em desenvolvimento</p>
-          <h2 style={{ marginTop: 10 }}>Estrutura de administração criada</h2>
-          <p className="fl-muted">Nenhuma alteração nos templates oficiais está disponível aqui ainda. O editor existente continua preservado para evitar regressões.</p>
-        </section>
+        <p className="fl-muted">Catálogo de layouts oficiais. Nesta fase, nomes, categorias, ordem e publicação podem ser editados; novas estruturas de PSD e edição de camadas ficam para a próxima etapa.</p>
+        <TemplateManager />
       </main>
     </div>
   );
