@@ -10,7 +10,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: v09-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate:
@@ -33,6 +37,17 @@ jobs:
         run: npm run build
         env:
           STATIC_EXPORT: '0'
+      - name: Sincronizar lockfile na branch de desenvolvimento
+        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/v09-netlify-admin-creator'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet -- package-lock.json; then
+            git add package-lock.json
+            git commit -m "build(v09): synchronize dependency lockfile"
+            git push origin HEAD:feat/v09-netlify-admin-creator
+          fi
       - name: Exportar lock reconstruído para sincronização futura
         if: always()
         uses: actions/upload-artifact@v4
