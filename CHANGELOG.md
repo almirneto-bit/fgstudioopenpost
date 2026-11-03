@@ -6,6 +6,17 @@ Histórico central de mudanças do FG Post Studio. As entradas são cumulativas 
 
 **Branch:** `feat/v09-netlify-admin-creator` — **não publicado em produção**.
 
+### V09 · Modo de demonstração com senha única (03/11/2026)
+- Decisão do usuário: adiar as contas individuais e a atribuição dos papéis Identity para outra etapa.
+- A senha geral do Netlify permanece ativa em todo o site e é o único acesso exigido no Deploy Preview.
+- O preview apresenta um menu inicial com **Criar posts** e **Administração**; ambas as áreas estão acessíveis sem segundo login.
+- Modo limitado à configuração `NEXT_PUBLIC_FG_V09_DEMO=1` exclusiva do contexto `deploy-preview`. A produção não recebe essa configuração.
+- Admin pode experimentar nomes, categorias, ordem e visibilidade dos modelos. O catálogo temporário fica no Netlify Blobs **específico do deploy** e pode reiniciar após novo build.
+- O editor usa apenas IndexedDB local para o histórico de teste; não faz operações de histórico/mídia no Supabase neste modo.
+- O Auto Layout continua limitado por origem e limite de chamadas, com possível indisponibilidade caso a chave do serviço ainda não esteja configurada.
+- GitHub Actions passou (run 41647756555); o Netlify marcou o Deploy Preview como bem-sucedido.
+- Nenhuma senha existente foi alterada. Não houve merge na `main`, migração de projetos nem substituição dos dados originais.
+
 ### Implementado no código da branch
 - Organização de modelos por composição e finalidade, com busca e nomenclatura simples.
 - Tema claro Final Level aplicado à interface, sem alterar o renderizador das artes.
