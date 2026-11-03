@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@netlify/database": "^2.0.1",
+    "@netlify/blobs": "^11.1.7",
     "@netlify/identity": "^2.0.0",
     "@netlify/functions": "^5.2.0",
     "jszip": "^3.10.2",
@@ -25,5 +27,8 @@
     "@types/react-dom": "^19.2.3",
     "playwright-core": "^1.61.1",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22.13.0"
   }
 }
