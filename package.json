@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@netlify/identity": "^2.0.0",
+    "@netlify/functions": "^5.2.0",
     "jszip": "^3.10.2",
     "next": "^16.2.10",
     "react": "^19.2.7",
