@@ -43,8 +43,8 @@ export default function PsdCreator({id}:{id:string}){
   const projectIdRef=useRef<string>('');
   useEffect(()=>{
     let active=true;
-    fetch('/.netlify/functions/psd-templates?id='+encodeURIComponent(id),{cache:'no-store'})
-      .then(async r=>{if(!r.ok)throw new Error('O PSD não está publicado ou não foi encontrado.');return r.json() as Promise<{template:Template}>;})
+    fetch('/.netlify/functions/psd-templates?id='+encodeURIComponent(id)+(new URLSearchParams(window.location.search).get('admin')==='1'?'&admin=1':''),{cache:'no-store'})
+      .then(async r=>{if(!r.ok){const result=await r.json().catch(()=>({error:''})) as {error?:string};throw new Error(r.status===404?'Este PSD não está disponível neste deploy. Confirme a publicação na biblioteca ou importe novamente após um novo deploy.':result.error||'Não foi possível abrir o PSD.');}return r.json() as Promise<{template:Template}>;})
       .then(r=>{
         if(!active)return;
         setTemplate(r.template);
