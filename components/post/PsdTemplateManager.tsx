@@ -55,7 +55,7 @@ export default function PsdTemplateManager(){
       const parsed=await readDocument(file);
       const nodes=flatten(parsed.children??[]);
       if(!nodes.length)throw new Error('Não foram encontradas camadas rasterizáveis.');
-      const layerOptions=nodes.map((node,i)=>({id:i,name:node.name||'Camada '+(i+1),visible:!node.hidden,opacity:Math.round((node.opacity??255)/255*100)}));
+      const layerOptions=nodes.map((node,i)=>({id:i,name:node.name||'Camada '+(i+1),visible:!node.hidden,opacity:Math.round((node.opacity??1)*100)}));
       const item:PsdTemplateRecord={id:crypto.randomUUID(),name:file.name.replace(/\.psd$/i,''),pillar:'competitivo',updatedAt:Date.now(),source:file,layerOptions,preview:paint(parsed,layerOptions)};
       await savePsdTemplate(item);await refresh();setDoc(parsed);setActive(item);setPreview(item.preview);
     }catch(err){setError(err instanceof Error?err.message:'Não foi possível importar o PSD.');}
