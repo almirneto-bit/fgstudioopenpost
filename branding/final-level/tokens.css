@@ -1,0 +1,78 @@
+/* ==========================================================================
+   Final Level · Design tokens — modo ferramenta (v2 · set/2026)
+   Dark-first: :root = escuro. Claro via prefers-color-scheme ou data-theme="light".
+   Fonte de verdade para ferramentas, dashboards e apps internos.
+   ========================================================================== */
+/* ============ TOKENS · DARK (padrão da marca) ============ */
+:root{
+  color-scheme:dark;
+  /* marca */
+  --roxo:#8200FF; --rosa:#CB6BFC; --verde:#D4EF39; --gelo:#EBF1FF;
+  /* superfícies */
+  --bg:#000000; --sidebar:#050505; --card:#0A0A0A; --surface:#141414; --popover:#1A1A1A;
+  --depth:#3B0059; --hover:rgba(235,241,255,.05); --active:rgba(152,56,255,.14);
+  --border:rgba(235,241,255,.10); --border-strong:rgba(235,241,255,.18); --grid:rgba(235,241,255,.07);
+  --scrim:rgba(0,0,0,.6);
+  /* texto */
+  --fg:#EBF1FF; --fg-2:#B4BECC; --fg-3:#8C97A6; --fg-disabled:#525B68; --on-accent:#EBF1FF;
+  /* acento (texto de acento em dark usa roxo-300 p/ contraste) */
+  --accent:#8200FF; --accent-hover:#9838FF; --accent-ink:#B98AFF; --accent-soft:rgba(130,0,255,.18); --ring:rgba(152,56,255,.55);
+  /* semânticos */
+  --ok:#46FEA5; --ok-bg:rgba(70,254,165,.12);
+  --warn:#FFCA16; --warn-bg:rgba(255,202,22,.12);
+  --err:#FF173F; --err-bg:rgba(255,23,63,.12);
+  --info:#B84DFF; --info-bg:rgba(184,77,255,.14);
+  --neutral-bg:rgba(235,241,255,.07);
+  /* séries de dados (escala roxo, ordem fixa) */
+  --c1:#9838FF; --c2:#C99EFF; --c3:#6A00D1; --cref:#8C97A6;
+  --heat-0:rgba(235,241,255,.05);
+  /* tipografia */
+  --f-display:"PP Formula Condensed Black","Anton",Impact,sans-serif;
+  --f-title:"PP Formula Extrabold","Archivo",system-ui,sans-serif;
+  --f-body:"PP Formula","Archivo",system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+  /* espaço base 4 */
+  --s1:4px;--s2:8px;--s3:12px;--s4:16px;--s5:24px;--s6:32px;--s7:40px;--s8:48px;--s9:64px;
+  /* raios (modo ferramenta) */
+  --r-sm:8px; --r-md:12px; --r-lg:16px; --r-xl:24px; --r-full:9999px;
+  /* movimento */
+  --ease:cubic-bezier(0.16,1,0.3,1); --t-fast:150ms; --t-base:200ms; --t-slow:400ms;
+  --shadow-pop:0 12px 40px rgba(0,0,0,.55);
+  --logo:#EBF1FF; --sb-w:252px; --sb-w-c:64px; --top-h:56px;
+}
+/* ============ TOKENS · LIGHT ============ */
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  color-scheme:light;
+  --bg:#F3F5FB; --sidebar:#EDF0F8; --card:#FBFCFF; --surface:#EEF1F9; --popover:#FBFCFF;
+  --depth:#F4EBFF; --hover:rgba(22,26,31,.05); --active:rgba(130,0,255,.09);
+  --border:rgba(22,26,31,.10); --border-strong:rgba(22,26,31,.18); --grid:rgba(22,26,31,.07);
+  --scrim:rgba(22,26,31,.35);
+  --fg:#161A1F; --fg-2:#3B424D; --fg-3:#5F6875; --fg-disabled:#9AA3AF; --on-accent:#EBF1FF;
+  --accent:#8200FF; --accent-hover:#6A00D1; --accent-ink:#6A00D1; --accent-soft:rgba(130,0,255,.10); --ring:rgba(130,0,255,.40);
+  --ok:#0B7A4B; --ok-bg:rgba(11,122,75,.10);
+  --warn:#8A5A00; --warn-bg:rgba(255,202,22,.22);
+  --err:#C0262D; --err-bg:rgba(192,38,45,.09);
+  --info:#6A00D1; --info-bg:rgba(130,0,255,.09);
+  --neutral-bg:rgba(22,26,31,.06);
+  --logo:#8200FF; --c1:#8200FF; --c2:#C99EFF; --c3:#3B0075; --cref:#8C97A6;
+  --heat-0:rgba(22,26,31,.06);
+  --shadow-pop:0 12px 40px rgba(22,26,31,.16);
+}}
+:root[data-theme="light"]{
+  color-scheme:light;
+  --bg:#F3F5FB; --sidebar:#EDF0F8; --card:#FBFCFF; --surface:#EEF1F9; --popover:#FBFCFF;
+  --depth:#F4EBFF; --hover:rgba(22,26,31,.05); --active:rgba(130,0,255,.09);
+  --border:rgba(22,26,31,.10); --border-strong:rgba(22,26,31,.18); --grid:rgba(22,26,31,.07);
+  --scrim:rgba(22,26,31,.35);
+  --fg:#161A1F; --fg-2:#3B424D; --fg-3:#5F6875; --fg-disabled:#9AA3AF; --on-accent:#EBF1FF;
+  --accent:#8200FF; --accent-hover:#6A00D1; --accent-ink:#6A00D1; --accent-soft:rgba(130,0,255,.10); --ring:rgba(130,0,255,.40);
+  --ok:#0B7A4B; --ok-bg:rgba(11,122,75,.10);
+  --warn:#8A5A00; --warn-bg:rgba(255,202,22,.22);
+  --err:#C0262D; --err-bg:rgba(192,38,45,.09);
+  --info:#6A00D1; --info-bg:rgba(130,0,255,.09);
+  --neutral-bg:rgba(22,26,31,.06);
+  --logo:#8200FF; --c1:#8200FF; --c2:#C99EFF; --c3:#3B0075; --cref:#8C97A6;
+  --heat-0:rgba(22,26,31,.06);
+  --shadow-pop:0 12px 40px rgba(22,26,31,.16);
+}
+:root[data-theme="dark"]{ color-scheme:dark; }
