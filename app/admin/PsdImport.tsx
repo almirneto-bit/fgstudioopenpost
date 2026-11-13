@@ -216,14 +216,14 @@ export default function PsdImport() {
     </section>
     <section className="fl-panel">
       <h2 style={{fontSize:21,margin:'0 0 10px'}}>Biblioteca de PSDs</h2>
-      <p className="fl-muted">Arquivos importados neste deploy de teste. Publique para liberar no editor de criação.</p>
+      <p className="fl-muted">Arquivos deste deploy de teste. Rascunhos podem ser pré-visualizados antes de publicar. Ao gerar outro deploy, os arquivos deste ambiente podem não estar disponíveis.</p>
       {library.length===0?<p className="fl-muted">Nenhum PSD importado ainda.</p>:<div className="fl-psd-library">
         {library.map(item=><div key={item.id} className="fl-psd-library-item">
           <div style={{flex:1,minWidth:0}}><strong>{item.title}</strong>
             <p className="fl-muted" style={{margin:'5px 0',fontSize:12}}>{item.category} · {item.layerCount} camadas · {item.slots.filter(x=>x.editable).length} campos editáveis</p>
             <small>{item.published?'Publicado':'Rascunho'}</small>
           </div>
-          <a className="fl-nav-back" href={'/criar/psd/'+item.id}>Prévia</a>
+          <a className="fl-nav-back" href={'/criar/psd/'+encodeURIComponent(item.id)+(item.published?'':'?admin=1')}>{item.published?'Abrir editor':'Prévia do rascunho'}</a>
           <button className="fl-button" type="button" disabled={loading} onClick={()=>void patch(item,!item.published)}>{item.published?'Despublicar':'Publicar'}</button>
           <button className="fl-nav-back" type="button" disabled={loading} onClick={()=>void deleteItem(item.id)}>Excluir</button>
         </div>)}
