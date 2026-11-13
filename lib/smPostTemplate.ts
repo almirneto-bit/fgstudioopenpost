@@ -267,6 +267,8 @@ export const SM_POST_LAYOUT_OPTIONS = [
 
 export type SmPostFields = {
   layoutId: SmPostLayoutId;
+  /** Identifica presets/duplicações sem alterar o renderer visual original. */
+  templatePresetId?: string;
   imageUrl: string | null;
   mediaType: SmPostMediaType;
   keepVideoAudio: boolean;
