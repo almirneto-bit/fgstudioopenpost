@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import JSZip from 'jszip';
+import { listPsdTemplates, TEMPLATE_PILLARS, type PsdTemplateRecord, type TemplatePillar } from '@/lib/psdTemplateLibrary';
 import SmPostCanvas, { renderPostBlob, type SmPostCanvasHandle } from './SmPostCanvas';
 import {
   SAFE_MARGIN,
@@ -134,6 +135,10 @@ function formatHistoryDate(timestamp: number) {
 
 export default function SmPostEditor() {
   const [project, setProject] = useState<SmPostProject | null>(null);
+  const [psdTemplates, setPsdTemplates] = useState<PsdTemplateRecord[]>([]);
+  const [templatePillar, setTemplatePillar] = useState<TemplatePillar>('competitivo');
+  const [carouselPreviews, setCarouselPreviews] = useState<Record<string,string>>({});
+  const [previewBusy, setPreviewBusy] = useState(false);
   const [history, setHistory] = useState<SmPostProject[]>([]);
   const [showSafeArea, setShowSafeArea] = useState(false);
   const [activeTab, setActiveTab] = useState<EditorTab>('edit');
@@ -220,6 +225,31 @@ export default function SmPostEditor() {
   const layout = fields ? SM_POST_LAYOUTS[fields.layoutId] : SM_POST_LAYOUTS.classic;
 
   useEffect(() => {
+    const load=()=>{void listPsdTemplates().then(setPsdTemplates).catch(()=>{});};
+    load();window.addEventListener('focus',load);
+    return ()=>window.removeEventListener('focus',load);
+  }, []);
+
+  useEffect(() => {
+    if(!project)return;
+    let cancelled=false;
+    const timer=window.setTimeout(async()=>{
+      setPreviewBusy(true);
+      const next:Record<string,string>={};
+      for(const slide of project.slides){
+        if(cancelled)break;
+        try {
+          const blob=await renderPostBlob(slide.fields);
+          if(cancelled)break;
+          next[slide.id]=await blobToPreviewDataUrl(blob);
+        } catch { /* previsualizações não bloqueiam a edição */ }
+      }
+      if(!cancelled){setCarouselPreviews(next);setPreviewBusy(false);}
+    },450);
+    return ()=>{cancelled=true;window.clearTimeout(timer);};
+  },[project]);
+
+  useEffect(() => {
     if (fields?.mediaType !== 'video' && exportFormat !== 'png') setExportFormat('png');
   }, [fields?.mediaType, exportFormat]);
 
@@ -295,6 +325,14 @@ export default function SmPostEditor() {
     }));
     setActiveTab('edit');
     setExportFormat('png');
+  };
+
+  const addPsdTemplate = (template:PsdTemplateRecord) => {
+    const slide=createSlide('classic');
+    slide.fields.imageUrl=template.preview;
+    slide.fields.mediaType='image';
+    updateProject(current=>({...current,slides:[...current.slides,slide],activeSlideId:slide.id}));
+    setActiveTab('edit');
   };
 
   const changeLayout = (layoutId: SmPostLayoutId) => {
@@ -618,8 +656,8 @@ export default function SmPostEditor() {
   return (
     <div className="sm-post-app">
       <header className="sm-post-header">
-        <h1>FG Post Studio <small>Editor de carrossel · v08-beta.2</small></h1>
-        <div className="sm-post-header-actions">
+        <h1><span className="fg-brand-mark">FL<span>•</span></span> FG Post Studio <small>Editor de carrossel · Final Level / Light</small></h1>
+        <div className="sm-post-header-actions"><a className="sm-post-secondary-btn" href="/admin/templates">Gerenciar PSDs</a>
           <select
             className="sm-post-secondary-btn"
             value={exportFormat}
@@ -713,6 +751,18 @@ export default function SmPostEditor() {
           </div>
         </div>
 
+        <div className="sm-post-rail-section">
+          <div className="sm-post-section-head"><span>Templates PSD</span><a href="/admin/templates">+ Gerenciar</a></div>
+          <select className="sm-post-project-name" aria-label="Pilar dos templates" value={templatePillar} onChange={event=>setTemplatePillar(event.target.value as TemplatePillar)}>
+            {TEMPLATE_PILLARS.map(p=><option key={p} value={p}>{p}</option>)}
+          </select>
+          <div className="sm-post-layout-grid sm-post-psd-templates">
+            {psdTemplates.filter(template=>template.pillar===templatePillar).map(template=><button key={template.id} className="sm-post-layout-card" type="button" onClick={()=>addPsdTemplate(template)} title={'Adicionar '+template.name}>
+              <img className="sm-post-psd-thumb" src={template.preview} alt="" /><span>{template.name}</span><small>+ adicionar</small>
+            </button>)}
+          </div>
+          {!psdTemplates.some(template=>template.pillar===templatePillar)&&<p className="sm-post-cloud-status">Nenhum PSD neste pilar. Importe na biblioteca.</p>}
+        </div>
         <div className="sm-post-rail-section">
           <div className="sm-post-section-head"><span>Adicionar layout</span></div>
           <div className="sm-post-layout-groups">
@@ -1132,6 +1182,7 @@ export default function SmPostEditor() {
           </div>
         )}
       </main>
+      <aside className="sm-post-carousel-rail" aria-label="Prévia de carrossel"><div className="sm-post-section-head"><span>Carrossel</span><small>{project.slides.length} lâminas</small></div><p className="sm-post-cloud-status">{previewBusy?'Atualizando miniaturas…':'Prévia da sequência antes de exportar'}</p><div className="sm-post-carousel-thumbs">{project.slides.map((slide,index)=><button key={slide.id} className={'sm-post-carousel-thumb '+(slide.id===activeSlide?.id?'is-active':'')} onClick={()=>updateProject(current=>({...current,activeSlideId:slide.id}))}><div className="sm-post-carousel-image">{carouselPreviews[slide.id]?<img src={carouselPreviews[slide.id]} alt={'Prévia da lâmina '+(index+1)}/>:<span>Gerando…</span>}</div><span>{String(index+1).padStart(2,'0')}</span></button>)}</div></aside>
     </div>
   );
 }
