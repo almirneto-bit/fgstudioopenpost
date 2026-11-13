@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import '../styles/tokens.css';
 import './globals.css';
+import '../styles/v09.css';
 
 export const metadata: Metadata = {
   title: 'FG Post Studio',
-  description: 'Editor de carrosséis FG — versão 04',
+  description: 'Criação de posts e carrosséis Favela Gaming · Final Level Co.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
