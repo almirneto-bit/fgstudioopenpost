@@ -94,3 +94,13 @@ As Functions da Netlify limitam requisições buffered a 6 MB (cerca de 4,5 MB d
 - [ ] Typecheck e build passam.
 - [ ] Deploy Preview funcional, produção intacta.
 - [ ] CHANGELOG atualizado com commits e resultados do teste.
+
+
+## Consolidação com a produção (13/11/2026)
+- Branch de integração: `integration/v09-finallevel-carousel-20261113` (PR #4).
+- Módulos de administração, biblioteca PSD, rotas Criar/Admin, dashboard, assets oficiais, Netlify Functions e configuração V09 recuperados.
+- Editor V09 preservado, incorporando visualização lateral das lâminas com prévias geradas pelo mesmo renderizador de exportação.
+- Biblioteca PSD publicada oferece filtro por Competitivo, Educacional, Sociocultural e Institucional.
+- Ferramenta local PSD existente na main mantida em `/admin/templates` como experiência separada; não equivale ao importador avançado da V09.
+- Build de Deploy Preview #4 concluído no Netlify. Ainda requer testes manuais de PSDs, autenticação, histórico e exportação.
+- NÃO publicar a branch em produção sem resolver a dependência de Netlify Identity ou adaptar um modo seguro compatível com o Supabase atual. A flag `NEXT_PUBLIC_FG_V09_DEMO` está limitada ao contexto deploy-preview.
